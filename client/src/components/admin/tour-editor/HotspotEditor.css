@@ -1,0 +1,415 @@
+/* ===========================================
+   Hotspot Editor Styles
+   =========================================== */
+
+.hotspot-editor-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.hotspot-editor {
+  width: 100%;
+  max-width: 1400px;
+  height: 90vh;
+  max-height: 800px;
+  background: var(--card-background);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Header */
+.hotspot-editor .editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.hotspot-editor .editor-header h2 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+/* Body */
+.hotspot-editor .editor-body {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Canvas Area */
+.editor-canvas {
+  display: flex;
+  flex-direction: column;
+  background: var(--background-secondary);
+  overflow: hidden;
+}
+
+.canvas-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--card-background);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.toolbar-left span {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.placing-hint {
+  font-size: 0.8125rem;
+  color: var(--color-primary);
+  animation: pulse 1.5s infinite;
+}
+
+.add-hotspot-dropdown {
+  display: flex;
+  align-items: stretch;
+}
+
+.add-hotspot-dropdown .btn {
+  border-radius: 6px 0 0 6px;
+}
+
+.type-select {
+  padding: 0.375rem 0.5rem;
+  background: var(--background-hover);
+  border: 1px solid var(--border-color);
+  border-left: none;
+  border-radius: 0 6px 6px 0;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+/* Panorama Canvas */
+.panorama-canvas {
+  flex: 1;
+  position: relative;
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  cursor: grab;
+  overflow: hidden;
+}
+
+.panorama-canvas:active {
+  cursor: grabbing;
+}
+
+.panorama-canvas.placing {
+  cursor: crosshair;
+}
+
+/* Hotspot Markers */
+.hotspot-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 0.2s;
+  z-index: 10;
+}
+
+.hotspot-marker:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.hotspot-marker.selected {
+  transform: translate(-50%, -50%) scale(1.2);
+}
+
+.hotspot-marker svg {
+  width: 36px;
+  height: 36px;
+  padding: 8px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  transition: all 0.2s;
+}
+
+.hotspot-marker.navigation svg {
+  background: #10b981;
+}
+
+.hotspot-marker.info svg {
+  background: #3b82f6;
+}
+
+.hotspot-marker.link svg {
+  background: #8b5cf6;
+}
+
+.hotspot-marker.audio svg {
+  background: #f59e0b;
+}
+
+.hotspot-marker.selected svg {
+  box-shadow: 0 0 0 3px white, 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.marker-label {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 4px;
+  white-space: nowrap;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  background: rgba(0, 0, 0, 0.75);
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.hotspot-marker:hover .marker-label,
+.hotspot-marker.selected .marker-label {
+  opacity: 1;
+}
+
+/* Placement Crosshair */
+.placement-crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--color-primary);
+  opacity: 0.7;
+  pointer-events: none;
+  animation: pulse 1s infinite;
+}
+
+/* Canvas Hint */
+.canvas-hint {
+  padding: 0.5rem 1rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: var(--card-background);
+  border-top: 1px solid var(--border-color);
+}
+
+/* Sidebar */
+.editor-sidebar {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border-color);
+  background: var(--card-background);
+  overflow: hidden;
+}
+
+.sidebar-header {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.sidebar-header h3 {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+/* Hotspot List */
+.hotspot-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+.empty-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--text-muted);
+  gap: 0.5rem;
+}
+
+.empty-list p {
+  margin: 0;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.empty-list span {
+  font-size: 0.8125rem;
+}
+
+.hotspot-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.hotspot-item:hover {
+  background: var(--background-hover);
+}
+
+.hotspot-item.active {
+  background: rgba(124, 140, 251, 0.1);
+}
+
+.hotspot-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: white;
+  flex-shrink: 0;
+}
+
+.hotspot-icon.navigation { background: #10b981; }
+.hotspot-icon.info { background: #3b82f6; }
+.hotspot-icon.link { background: #8b5cf6; }
+.hotspot-icon.audio { background: #f59e0b; }
+
+.hotspot-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.hotspot-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hotspot-type {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Hotspot Form */
+.hotspot-form {
+  padding: 1rem;
+  border-top: 1px solid var(--border-color);
+  background: var(--background-secondary);
+  max-height: 50%;
+  overflow-y: auto;
+}
+
+.hotspot-form h4 {
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.hotspot-form .form-group {
+  margin-bottom: 0.875rem;
+}
+
+.hotspot-form .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.hotspot-form label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 0.375rem;
+}
+
+.hotspot-form input,
+.hotspot-form select,
+.hotspot-form textarea {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: var(--input-background);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+}
+
+.hotspot-form input:focus,
+.hotspot-form select:focus,
+.hotspot-form textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.hotspot-form textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.position-info .position-values {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 900px) {
+  .hotspot-editor-modal {
+    padding: 0;
+  }
+
+  .hotspot-editor {
+    height: 100vh;
+    max-height: none;
+    border-radius: 0;
+  }
+
+  .hotspot-editor .editor-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto;
+  }
+
+  .editor-sidebar {
+    border-left: none;
+    border-top: 1px solid var(--border-color);
+    max-height: 40%;
+  }
+
+  .hotspot-form {
+    max-height: none;
+  }
+}

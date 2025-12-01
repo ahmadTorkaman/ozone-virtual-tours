@@ -4,12 +4,87 @@ All notable changes to Ozone Virtual Tours will be documented in this file.
 
 ## [Unreleased]
 
-### Phase 3: Tour Builder (Next)
-- [ ] Tour editor layout with tabs
-- [ ] Floor plan editor with click-to-position
-- [ ] Scene management with drag-and-drop
-- [ ] Visual hotspot editor
-- [ ] Ambient music upload
+### Phase 4: Analytics & Polish (Next)
+- [ ] Tour analytics (views, duration, interactions)
+- [ ] Performance optimizations
+- [ ] Accessibility improvements
+- [ ] Mobile app considerations
+
+---
+
+## [0.4.0] - 2024-12-01
+
+### Phase 3: Tour Builder
+
+#### Added
+
+- **Tour Editor (`TourEditor.jsx`)**
+  - Tab-based layout (Details, Floor Plans, Scenes, Preview)
+  - Create new and edit existing tours
+  - Auto-save status indicator
+  - Delete tour with confirmation
+
+- **Tour Details Form (`TourDetailsForm.jsx`)**
+  - Basic info: name, slug, description, client, project reference
+  - Auto-generate URL-friendly slugs
+  - Password protection toggle with password field
+  - Ambient music upload with volume slider
+  - Viewer settings: auto-rotate, VR mode, compass
+
+- **Floor Plan Editor (`FloorPlanEditor.jsx`)**
+  - Upload multiple floor plans
+  - Click-to-position scenes on floor plans
+  - Scene markers with labels
+  - Edit floor plan names
+  - Delete floor plans
+
+- **Scene Manager (`SceneManager.jsx`)**
+  - Upload 360° panorama images
+  - Multi-file upload support
+  - Drag-to-reorder scenes
+  - Edit scene names
+  - Set initial view direction (yaw/pitch)
+  - Delete scenes
+
+- **Hotspot Editor (`HotspotEditor.jsx`)**
+  - Visual panorama-based editor
+  - Click to place hotspots
+  - Hotspot types: Navigation, Info, Link, Audio
+  - Edit hotspot properties (name, target scene, content, URL)
+  - Delete hotspots
+  - Position display (yaw/pitch)
+
+- **Tour Preview (`TourPreview.jsx`)**
+  - Embedded iframe preview
+  - Copy shareable link
+  - Open in new tab
+  - Tour statistics (scenes, hotspots, floor plans, status)
+
+- **API Routes**
+  - `GET/POST /api/tours/:tourId/scenes` - List/create scenes
+  - `PUT/DELETE /api/tours/:tourId/scenes/:sceneId` - Update/delete scene
+  - `POST /api/tours/:tourId/scenes/reorder` - Reorder scenes
+  - `GET/POST /api/tours/:tourId/floorplans` - List/create floor plans
+  - `PUT/DELETE /api/tours/:tourId/floorplans/:floorPlanId` - Update/delete
+  - `PUT /api/tours/:tourId/floorplans/:floorPlanId/scenes/:sceneId` - Position scene
+  - `GET/POST /api/tours/:tourId/scenes/:sceneId/hotspots` - List/create hotspots
+  - `PUT/DELETE /api/tours/:tourId/scenes/:sceneId/hotspots/:hotspotId` - Update/delete
+
+- **Upload Routes**
+  - `POST /api/upload/audio` - Upload ambient music (MP3, WAV, OGG, WebM)
+  - `POST /api/upload/logo` - Upload company logo
+
+- **Updated API Service**
+  - `floorPlansApi` - Floor plan CRUD operations
+  - Updated `scenesApi` with tour-scoped routes
+  - Updated `hotspotsApi` with scene-scoped routes
+
+#### Changed
+
+- **App.jsx** - Added TourEditor routes (`/admin/tours/new`, `/admin/tours/:id`)
+- **Server index.js** - Registered floor plans routes
+- **Scenes routes** - Added auth middleware, tour-scoped paths
+- **Hotspots routes** - Added auth middleware, scene-scoped paths
 
 ---
 

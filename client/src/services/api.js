@@ -97,7 +97,7 @@ export const toursApi = {
   },
 
   // Get tour by ID
-  get: (id) => request(`/tours/${id}`),
+  getById: (id) => request(`/tours/${id}`),
 
   // Get tour by slug (public)
   getBySlug: (slug) => request(`/tours/slug/${slug}`),
@@ -135,29 +135,70 @@ export const toursApi = {
 // ===========================================
 
 export const scenesApi = {
+  // List scenes for a tour
+  list: (tourId) => request(`/tours/${tourId}/scenes`),
+
   // Get scene by ID
-  get: (id) => request(`/scenes/${id}`),
+  get: (tourId, sceneId) => request(`/tours/${tourId}/scenes/${sceneId}`),
 
   // Create scene
-  create: (data) => request('/scenes', {
+  create: (tourId, data) => request(`/tours/${tourId}/scenes`, {
     method: 'POST',
     body: JSON.stringify(data),
   }),
 
   // Update scene
-  update: (id, data) => request(`/scenes/${id}`, {
+  update: (tourId, sceneId, data) => request(`/tours/${tourId}/scenes/${sceneId}`, {
     method: 'PUT',
     body: JSON.stringify(data),
   }),
 
   // Delete scene
-  delete: (id) => request(`/scenes/${id}`, { method: 'DELETE' }),
+  delete: (tourId, sceneId) => request(`/tours/${tourId}/scenes/${sceneId}`, {
+    method: 'DELETE',
+  }),
 
   // Reorder scenes
-  reorder: (tourId, sceneIds) => request(`/scenes/${tourId}/reorder`, {
-    method: 'PUT',
+  reorder: (tourId, sceneIds) => request(`/tours/${tourId}/scenes/reorder`, {
+    method: 'POST',
     body: JSON.stringify({ sceneIds }),
   }),
+};
+
+// ===========================================
+// Floor Plans API
+// ===========================================
+
+export const floorPlansApi = {
+  // List floor plans for a tour
+  list: (tourId) => request(`/tours/${tourId}/floorplans`),
+
+  // Get floor plan by ID
+  get: (tourId, floorPlanId) => request(`/tours/${tourId}/floorplans/${floorPlanId}`),
+
+  // Create floor plan
+  create: (tourId, data) => request(`/tours/${tourId}/floorplans`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+
+  // Update floor plan
+  update: (tourId, floorPlanId, data) => request(`/tours/${tourId}/floorplans/${floorPlanId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+
+  // Delete floor plan
+  delete: (tourId, floorPlanId) => request(`/tours/${tourId}/floorplans/${floorPlanId}`, {
+    method: 'DELETE',
+  }),
+
+  // Update scene position on floor plan
+  updateScenePosition: (tourId, floorPlanId, sceneId, position) =>
+    request(`/tours/${tourId}/floorplans/${floorPlanId}/scenes/${sceneId}`, {
+      method: 'PUT',
+      body: JSON.stringify(position),
+    }),
 };
 
 // ===========================================
@@ -165,29 +206,27 @@ export const scenesApi = {
 // ===========================================
 
 export const hotspotsApi = {
-  // Get hotspot by ID
-  get: (id) => request(`/hotspots/${id}`),
+  // List hotspots for a scene
+  list: (tourId, sceneId) => request(`/tours/${tourId}/scenes/${sceneId}/hotspots`),
 
   // Create hotspot
-  create: (data) => request('/hotspots', {
+  create: (tourId, sceneId, data) => request(`/tours/${tourId}/scenes/${sceneId}/hotspots`, {
     method: 'POST',
     body: JSON.stringify(data),
   }),
 
   // Update hotspot
-  update: (id, data) => request(`/hotspots/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  }),
+  update: (tourId, sceneId, hotspotId, data) =>
+    request(`/tours/${tourId}/scenes/${sceneId}/hotspots/${hotspotId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
 
   // Delete hotspot
-  delete: (id) => request(`/hotspots/${id}`, { method: 'DELETE' }),
-
-  // Batch create
-  batchCreate: (hotspots) => request('/hotspots/batch', {
-    method: 'POST',
-    body: JSON.stringify({ hotspots }),
-  }),
+  delete: (tourId, sceneId, hotspotId) =>
+    request(`/tours/${tourId}/scenes/${sceneId}/hotspots/${hotspotId}`, {
+      method: 'DELETE',
+    }),
 };
 
 // ===========================================
@@ -226,11 +265,22 @@ export const settingsApi = {
 
 export const uploadApi = {
   // Upload panorama
-  uploadPanorama: async (file, onProgress) => {
+  uploadPanorama: async (file) => {
     const formData = new FormData();
-    formData.append('panorama', file);
+    formData.append('file', file);
 
     return request('/upload/panorama', {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
+  // Upload stereo panorama
+  uploadStereo: async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return request('/upload/stereo', {
       method: 'POST',
       body: formData,
     });
@@ -239,7 +289,7 @@ export const uploadApi = {
   // Upload floor plan
   uploadFloorplan: async (file) => {
     const formData = new FormData();
-    formData.append('floorplan', file);
+    formData.append('file', file);
 
     return request('/upload/floorplan', {
       method: 'POST',
@@ -250,7 +300,7 @@ export const uploadApi = {
   // Upload audio
   uploadAudio: async (file) => {
     const formData = new FormData();
-    formData.append('audio', file);
+    formData.append('file', file);
 
     return request('/upload/audio', {
       method: 'POST',
@@ -261,7 +311,7 @@ export const uploadApi = {
   // Upload logo
   uploadLogo: async (file) => {
     const formData = new FormData();
-    formData.append('logo', file);
+    formData.append('file', file);
 
     return request('/upload/logo', {
       method: 'POST',
@@ -279,6 +329,7 @@ export default {
   auth: authApi,
   tours: toursApi,
   scenes: scenesApi,
+  floorPlans: floorPlansApi,
   hotspots: hotspotsApi,
   settings: settingsApi,
   upload: uploadApi,

@@ -15,6 +15,7 @@ import authRouter from './routes/auth.js';
 import toursRouter from './routes/tours.js';
 import scenesRouter from './routes/scenes.js';
 import hotspotsRouter from './routes/hotspots.js';
+import floorPlansRouter from './routes/floorplans.js';
 import uploadRouter from './routes/upload.js';
 import settingsRouter from './routes/settings.js';
 
@@ -76,8 +77,9 @@ app.get('/health', (req, res) => {
 
 app.use('/api/auth', authRouter);
 app.use('/api/tours', toursRouter);
-app.use('/api/scenes', scenesRouter);
-app.use('/api/hotspots', hotspotsRouter);
+app.use('/api/tours', scenesRouter);      // /api/tours/:tourId/scenes/*
+app.use('/api/tours', hotspotsRouter);    // /api/tours/:tourId/scenes/:sceneId/hotspots/*
+app.use('/api/tours', floorPlansRouter);  // /api/tours/:tourId/floorplans/*
 app.use('/api/upload', uploadRouter);
 app.use('/api/settings', settingsRouter);
 

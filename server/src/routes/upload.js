@@ -1,14 +1,19 @@
+// ===========================================
+// Upload Routes
+// ===========================================
+
 import express from 'express';
 import multer from 'multer';
 import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import fs from 'fs/promises';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Configure multer for memory storage
-const upload = multer({
+// Configure multer for memory storage - images
+const uploadImage = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 50 * 1024 * 1024, // 50MB max
@@ -23,30 +28,50 @@ const upload = multer({
   }
 });
 
-// Ensure uploads directory exists
+// Configure multer for audio files
+const uploadAudio = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 20 * 1024 * 1024, // 20MB max for audio
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/webm'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only MP3, WAV, OGG, and WebM audio are allowed.'));
+    }
+  }
+});
+
+// Ensure uploads directories exist
 const UPLOADS_DIR = process.env.UPLOADS_DIR || './uploads';
 const ensureUploadsDir = async () => {
   try {
-    await fs.mkdir(UPLOADS_DIR, { recursive: true });
-    await fs.mkdir(path.join(UPLOADS_DIR, 'panoramas'), { recursive: true });
-    await fs.mkdir(path.join(UPLOADS_DIR, 'thumbnails'), { recursive: true });
-    await fs.mkdir(path.join(UPLOADS_DIR, 'floorplans'), { recursive: true });
+    const dirs = ['panoramas', 'thumbnails', 'floorplans', 'audio', 'logos'];
+    for (const dir of dirs) {
+      await fs.mkdir(path.join(UPLOADS_DIR, dir), { recursive: true });
+    }
   } catch (error) {
     console.error('Error creating uploads directory:', error);
   }
 };
 ensureUploadsDir();
 
+// Helper to get base URL
+const getBaseUrl = () => process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
+
+// ===========================================
 // POST /api/upload/panorama - Upload panorama image
-router.post('/panorama', upload.single('file'), async (req, res, next) => {
+// ===========================================
+router.post('/panorama', requireAuth, uploadImage.single('file'), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: { message: 'No file uploaded' } });
     }
 
     const fileId = uuidv4();
-    const ext = '.jpg'; // Standardize to JPEG for panoramas
-    const filename = `${fileId}${ext}`;
+    const filename = `${fileId}.jpg`;
     const thumbnailFilename = `${fileId}_thumb.jpg`;
 
     // Process and save panorama (convert to JPEG, optimize)
@@ -65,14 +90,11 @@ router.post('/panorama', upload.single('file'), async (req, res, next) => {
     // Get image metadata
     const metadata = await sharp(req.file.buffer).metadata();
 
-    // In production, you'd upload to R2/S3 and return those URLs
-    // For local dev, return local paths
-    const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
-    
     res.json({
       success: true,
-      panoramaUrl: `${baseUrl}/uploads/panoramas/${filename}`,
-      thumbnailUrl: `${baseUrl}/uploads/thumbnails/${thumbnailFilename}`,
+      url: `/uploads/panoramas/${filename}`,
+      panoramaUrl: `/uploads/panoramas/${filename}`,
+      thumbnailUrl: `/uploads/thumbnails/${thumbnailFilename}`,
       metadata: {
         width: metadata.width,
         height: metadata.height,
@@ -85,8 +107,10 @@ router.post('/panorama', upload.single('file'), async (req, res, next) => {
   }
 });
 
-// POST /api/upload/stereo - Upload stereo panorama (side-by-side)
-router.post('/stereo', upload.single('file'), async (req, res, next) => {
+// ===========================================
+// POST /api/upload/stereo - Upload stereo panorama
+// ===========================================
+router.post('/stereo', requireAuth, uploadImage.single('file'), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: { message: 'No file uploaded' } });
@@ -98,22 +122,21 @@ router.post('/stereo', upload.single('file'), async (req, res, next) => {
     // Process and save stereo panorama
     const stereoPath = path.join(UPLOADS_DIR, 'panoramas', filename);
     await sharp(req.file.buffer)
-      .jpeg({ quality: 92, progressive: true }) // Higher quality for stereo
+      .jpeg({ quality: 92, progressive: true })
       .toFile(stereoPath);
 
     // Validate aspect ratio (should be 2:1 for side-by-side stereo)
     const metadata = await sharp(req.file.buffer).metadata();
     const aspectRatio = metadata.width / metadata.height;
-    
+
     if (aspectRatio < 1.9 || aspectRatio > 2.1) {
       console.warn(`Stereo panorama has unusual aspect ratio: ${aspectRatio.toFixed(2)}`);
     }
 
-    const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
-    
     res.json({
       success: true,
-      stereoUrl: `${baseUrl}/uploads/panoramas/${filename}`,
+      url: `/uploads/panoramas/${filename}`,
+      stereoUrl: `/uploads/panoramas/${filename}`,
       metadata: {
         width: metadata.width,
         height: metadata.height,
@@ -125,8 +148,10 @@ router.post('/stereo', upload.single('file'), async (req, res, next) => {
   }
 });
 
+// ===========================================
 // POST /api/upload/floorplan - Upload floor plan image
-router.post('/floorplan', upload.single('file'), async (req, res, next) => {
+// ===========================================
+router.post('/floorplan', requireAuth, uploadImage.single('file'), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: { message: 'No file uploaded' } });
@@ -143,11 +168,10 @@ router.post('/floorplan', upload.single('file'), async (req, res, next) => {
 
     const metadata = await sharp(req.file.buffer).metadata();
 
-    const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
-    
     res.json({
       success: true,
-      imageUrl: `${baseUrl}/uploads/floorplans/${filename}`,
+      url: `/uploads/floorplans/${filename}`,
+      imageUrl: `/uploads/floorplans/${filename}`,
       width: metadata.width,
       height: metadata.height
     });
@@ -156,18 +180,97 @@ router.post('/floorplan', upload.single('file'), async (req, res, next) => {
   }
 });
 
+// ===========================================
+// POST /api/upload/audio - Upload audio file
+// ===========================================
+router.post('/audio', requireAuth, uploadAudio.single('file'), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: { message: 'No file uploaded' } });
+    }
+
+    const fileId = uuidv4();
+    // Determine extension based on mimetype
+    const extMap = {
+      'audio/mpeg': '.mp3',
+      'audio/mp3': '.mp3',
+      'audio/wav': '.wav',
+      'audio/ogg': '.ogg',
+      'audio/webm': '.webm'
+    };
+    const ext = extMap[req.file.mimetype] || '.mp3';
+    const filename = `${fileId}${ext}`;
+
+    // Save audio file directly (no processing needed)
+    const audioPath = path.join(UPLOADS_DIR, 'audio', filename);
+    await fs.writeFile(audioPath, req.file.buffer);
+
+    res.json({
+      success: true,
+      url: `/uploads/audio/${filename}`,
+      audioUrl: `/uploads/audio/${filename}`,
+      metadata: {
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        originalName: req.file.originalname
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ===========================================
+// POST /api/upload/logo - Upload company logo
+// ===========================================
+router.post('/logo', requireAuth, uploadImage.single('file'), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: { message: 'No file uploaded' } });
+    }
+
+    const fileId = uuidv4();
+    const filename = `${fileId}_logo.png`;
+
+    // Process logo - resize to reasonable size, keep transparency
+    const logoPath = path.join(UPLOADS_DIR, 'logos', filename);
+    await sharp(req.file.buffer)
+      .resize(400, 200, { fit: 'inside', withoutEnlargement: true })
+      .png({ quality: 90 })
+      .toFile(logoPath);
+
+    const metadata = await sharp(req.file.buffer).metadata();
+
+    res.json({
+      success: true,
+      url: `/uploads/logos/${filename}`,
+      logoUrl: `/uploads/logos/${filename}`,
+      metadata: {
+        width: metadata.width,
+        height: metadata.height
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ===========================================
 // DELETE /api/upload/:type/:filename - Delete uploaded file
-router.delete('/:type/:filename', async (req, res, next) => {
+// ===========================================
+router.delete('/:type/:filename', requireAuth, async (req, res, next) => {
   try {
     const { type, filename } = req.params;
-    
-    const validTypes = ['panoramas', 'thumbnails', 'floorplans'];
+
+    const validTypes = ['panoramas', 'thumbnails', 'floorplans', 'audio', 'logos'];
     if (!validTypes.includes(type)) {
       return res.status(400).json({ error: { message: 'Invalid file type' } });
     }
 
-    const filePath = path.join(UPLOADS_DIR, type, filename);
-    
+    // Sanitize filename to prevent directory traversal
+    const sanitizedFilename = path.basename(filename);
+    const filePath = path.join(UPLOADS_DIR, type, sanitizedFilename);
+
     try {
       await fs.unlink(filePath);
       res.status(204).send();

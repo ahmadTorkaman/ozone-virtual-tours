@@ -1,34 +1,49 @@
+// ===========================================
+// Hotspots Routes
+// ===========================================
+
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// GET /api/hotspots/:id - Get single hotspot
-router.get('/:id', async (req, res, next) => {
+// ===========================================
+// GET /api/tours/:tourId/scenes/:sceneId/hotspots - List all hotspots for a scene
+// ===========================================
+router.get('/:tourId/scenes/:sceneId/hotspots', requireAuth, async (req, res, next) => {
   try {
-    const { id } = req.params;
-    
-    const hotspot = await prisma.hotspot.findUnique({
-      where: { id }
+    const { tourId, sceneId } = req.params;
+
+    // Verify scene belongs to tour
+    const scene = await prisma.scene.findFirst({
+      where: { id: sceneId, tourId }
     });
-    
-    if (!hotspot) {
-      return res.status(404).json({ error: { message: 'Hotspot not found' } });
+
+    if (!scene) {
+      return res.status(404).json({ error: { message: 'Scene not found' } });
     }
-    
-    res.json(hotspot);
+
+    const hotspots = await prisma.hotspot.findMany({
+      where: { sceneId }
+    });
+
+    res.json({ hotspots });
   } catch (error) {
     next(error);
   }
 });
 
-// POST /api/hotspots - Create new hotspot
-router.post('/', async (req, res, next) => {
+// ===========================================
+// POST /api/tours/:tourId/scenes/:sceneId/hotspots - Create new hotspot
+// ===========================================
+router.post('/:tourId/scenes/:sceneId/hotspots', requireAuth, async (req, res, next) => {
   try {
+    const { tourId, sceneId } = req.params;
     const {
-      sceneId,
       type,
+      name,
       yaw,
       pitch,
       targetSceneId,
@@ -36,68 +51,77 @@ router.post('/', async (req, res, next) => {
       content,
       mediaUrl,
       url,
+      audioUrl,
+      audioLoop,
+      audioAutoplay,
       icon,
       color,
       scale
     } = req.body;
-    
-    if (!sceneId || yaw === undefined || pitch === undefined) {
-      return res.status(400).json({
-        error: { message: 'sceneId, yaw, and pitch are required' }
-      });
+
+    // Verify scene belongs to tour
+    const scene = await prisma.scene.findFirst({
+      where: { id: sceneId, tourId }
+    });
+
+    if (!scene) {
+      return res.status(404).json({ error: { message: 'Scene not found' } });
     }
-    
+
     // Validate type
-    const validTypes = ['NAVIGATION', 'INFO', 'MEDIA', 'LINK'];
+    const validTypes = ['NAVIGATION', 'INFO', 'MEDIA', 'LINK', 'AUDIO'];
     if (type && !validTypes.includes(type)) {
       return res.status(400).json({
         error: { message: `type must be one of: ${validTypes.join(', ')}` }
       });
     }
-    
-    // Verify scene exists
-    const scene = await prisma.scene.findUnique({ where: { id: sceneId } });
-    if (!scene) {
-      return res.status(404).json({ error: { message: 'Scene not found' } });
-    }
-    
+
     // Validate targetSceneId if NAVIGATION type
     if (type === 'NAVIGATION' && targetSceneId) {
-      const targetScene = await prisma.scene.findUnique({ where: { id: targetSceneId } });
+      const targetScene = await prisma.scene.findFirst({
+        where: { id: targetSceneId, tourId }
+      });
       if (!targetScene) {
         return res.status(400).json({ error: { message: 'Target scene not found' } });
       }
     }
-    
+
     const hotspot = await prisma.hotspot.create({
       data: {
         sceneId,
         type: type || 'NAVIGATION',
-        yaw,
-        pitch,
+        name: name || 'Hotspot',
+        yaw: yaw || 0,
+        pitch: pitch || 0,
         targetSceneId,
         title,
         content,
         mediaUrl,
         url,
+        audioUrl,
+        audioLoop: audioLoop || false,
+        audioAutoplay: audioAutoplay || false,
         icon: icon || 'arrow',
         color: color || '#7c8cfb',
         scale: scale || 1.0
       }
     });
-    
-    res.status(201).json(hotspot);
+
+    res.status(201).json({ hotspot });
   } catch (error) {
     next(error);
   }
 });
 
-// PUT /api/hotspots/:id - Update hotspot
-router.put('/:id', async (req, res, next) => {
+// ===========================================
+// PUT /api/tours/:tourId/scenes/:sceneId/hotspots/:hotspotId - Update hotspot
+// ===========================================
+router.put('/:tourId/scenes/:sceneId/hotspots/:hotspotId', requireAuth, async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const { tourId, sceneId, hotspotId } = req.params;
     const {
       type,
+      name,
       yaw,
       pitch,
       targetSceneId,
@@ -105,82 +129,72 @@ router.put('/:id', async (req, res, next) => {
       content,
       mediaUrl,
       url,
+      audioUrl,
+      audioLoop,
+      audioAutoplay,
       icon,
       color,
       scale
     } = req.body;
-    
+
+    // Verify hotspot belongs to scene in tour
+    const existingHotspot = await prisma.hotspot.findFirst({
+      where: { id: hotspotId, sceneId },
+      include: { scene: true }
+    });
+
+    if (!existingHotspot || existingHotspot.scene.tourId !== tourId) {
+      return res.status(404).json({ error: { message: 'Hotspot not found' } });
+    }
+
+    const updateData = {};
+    if (type !== undefined) updateData.type = type;
+    if (name !== undefined) updateData.name = name;
+    if (yaw !== undefined) updateData.yaw = yaw;
+    if (pitch !== undefined) updateData.pitch = pitch;
+    if (targetSceneId !== undefined) updateData.targetSceneId = targetSceneId;
+    if (title !== undefined) updateData.title = title;
+    if (content !== undefined) updateData.content = content;
+    if (mediaUrl !== undefined) updateData.mediaUrl = mediaUrl;
+    if (url !== undefined) updateData.url = url;
+    if (audioUrl !== undefined) updateData.audioUrl = audioUrl;
+    if (audioLoop !== undefined) updateData.audioLoop = audioLoop;
+    if (audioAutoplay !== undefined) updateData.audioAutoplay = audioAutoplay;
+    if (icon !== undefined) updateData.icon = icon;
+    if (color !== undefined) updateData.color = color;
+    if (scale !== undefined) updateData.scale = scale;
+
     const hotspot = await prisma.hotspot.update({
-      where: { id },
-      data: {
-        ...(type && { type }),
-        ...(yaw !== undefined && { yaw }),
-        ...(pitch !== undefined && { pitch }),
-        ...(targetSceneId !== undefined && { targetSceneId }),
-        ...(title !== undefined && { title }),
-        ...(content !== undefined && { content }),
-        ...(mediaUrl !== undefined && { mediaUrl }),
-        ...(url !== undefined && { url }),
-        ...(icon && { icon }),
-        ...(color && { color }),
-        ...(scale !== undefined && { scale })
-      }
+      where: { id: hotspotId },
+      data: updateData
     });
-    
-    res.json(hotspot);
+
+    res.json({ hotspot });
   } catch (error) {
-    if (error.code === 'P2025') {
-      return res.status(404).json({ error: { message: 'Hotspot not found' } });
-    }
     next(error);
   }
 });
 
-// DELETE /api/hotspots/:id - Delete hotspot
-router.delete('/:id', async (req, res, next) => {
+// ===========================================
+// DELETE /api/tours/:tourId/scenes/:sceneId/hotspots/:hotspotId - Delete hotspot
+// ===========================================
+router.delete('/:tourId/scenes/:sceneId/hotspots/:hotspotId', requireAuth, async (req, res, next) => {
   try {
-    const { id } = req.params;
-    
-    await prisma.hotspot.delete({ where: { id } });
-    
+    const { tourId, sceneId, hotspotId } = req.params;
+
+    // Verify hotspot belongs to scene in tour
+    const existingHotspot = await prisma.hotspot.findFirst({
+      where: { id: hotspotId, sceneId },
+      include: { scene: true }
+    });
+
+    if (!existingHotspot || existingHotspot.scene.tourId !== tourId) {
+      return res.status(404).json({ error: { message: 'Hotspot not found' } });
+    }
+
+    await prisma.hotspot.delete({ where: { id: hotspotId } });
+
     res.status(204).send();
-  } catch (error) {
-    if (error.code === 'P2025') {
-      return res.status(404).json({ error: { message: 'Hotspot not found' } });
-    }
-    next(error);
-  }
-});
-
-// POST /api/hotspots/batch - Create multiple hotspots
-router.post('/batch', async (req, res, next) => {
-  try {
-    const { hotspots } = req.body;
-    
-    if (!Array.isArray(hotspots)) {
-      return res.status(400).json({
-        error: { message: 'hotspots must be an array' }
-      });
-    }
-    
-    const created = await prisma.hotspot.createMany({
-      data: hotspots.map(h => ({
-        sceneId: h.sceneId,
-        type: h.type || 'NAVIGATION',
-        yaw: h.yaw,
-        pitch: h.pitch,
-        targetSceneId: h.targetSceneId,
-        title: h.title,
-        content: h.content,
-        mediaUrl: h.mediaUrl,
-        url: h.url,
-        icon: h.icon || 'arrow',
-        color: h.color || '#7c8cfb',
-        scale: h.scale || 1.0
-      }))
-    });
-    
-    res.status(201).json({ count: created.count });
   } catch (error) {
     next(error);
   }

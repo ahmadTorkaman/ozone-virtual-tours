@@ -10,6 +10,7 @@ import { BrandingProvider } from './contexts/BrandingContext';
 import AdminLayout from './components/admin/AdminLayout';
 import Dashboard from './pages/admin/Dashboard';
 import Tours from './pages/admin/Tours';
+import TourEditor from './pages/admin/TourEditor';
 import BrandingSettings from './pages/admin/BrandingSettings';
 import TeamSettings from './pages/admin/TeamSettings';
 
@@ -86,8 +87,8 @@ function AppRoutes() {
       }>
         <Route index element={<Dashboard />} />
         <Route path="tours" element={<Tours />} />
-        <Route path="tours/new" element={<div className="card"><h2>Create Tour (Coming Soon)</h2></div>} />
-        <Route path="tours/:id" element={<div className="card"><h2>Edit Tour (Coming Soon)</h2></div>} />
+        <Route path="tours/new" element={<TourEditor />} />
+        <Route path="tours/:id" element={<TourEditor />} />
         <Route path="branding" element={<BrandingSettings />} />
         <Route path="team" element={<TeamSettings />} />
       </Route>
