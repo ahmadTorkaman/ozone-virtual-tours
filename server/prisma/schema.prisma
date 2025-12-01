@@ -1,4 +1,6 @@
+// ===========================================
 // Ozone Virtual Tours - Database Schema
+// ===========================================
 
 generator client {
   provider = "prisma-client-js"
@@ -9,138 +11,245 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ===== TOUR =====
-model Tour {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  thumbnail   String?
-  
-  // Client/Project reference
-  clientName  String?
-  projectRef  String?  // Link to main Ozone project ID
-  
-  // Status
-  isPublished Boolean  @default(false)
-  isArchived  Boolean  @default(false)
-  
-  // Tour settings (JSON for flexibility)
-  settings    Json     @default("{}")
-  // Example: { autoRotate: false, showFloorPlan: true, vrEnabled: true }
-  
-  // Timestamps
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Relations
-  scenes      Scene[]
-  floorPlans  FloorPlan[]
-  
-  @@index([projectRef])
-  @@index([isPublished])
+// ============================================
+// Authentication & Users
+// ============================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  avatar    String?
+  role      Role     @default(EDITOR)
+  invitedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions Session[]
+  tours    Tour[]       @relation("CreatedBy")
+  invites  InviteLink[] @relation("CreatedInvites")
+
+  @@index([email])
 }
 
-// ===== SCENE =====
-model Scene {
-  id            String   @id @default(cuid())
-  tourId        String
-  tour          Tour     @relation(fields: [tourId], references: [id], onDelete: Cascade)
-  
-  name          String
-  description   String?
-  order         Int      @default(0)
-  
-  // Panorama images
-  panoramaUrl   String   // Mono equirectangular
-  stereoUrl     String?  // Side-by-side stereo for VR (optional)
-  thumbnailUrl  String?  // Auto-generated thumbnail
-  
-  // Initial camera orientation
-  initialYaw    Float    @default(0)    // Horizontal rotation (-180 to 180)
-  initialPitch  Float    @default(0)    // Vertical rotation (-90 to 90)
-  initialFov    Float?                  // Override default FOV
-  
-  // Floor plan positioning
-  floorPlanId   String?
-  floorPlanX    Float?   // X position on floor plan
-  floorPlanY    Float?   // Y position on floor plan
-  
+enum Role {
+  ADMIN
+  EDITOR
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+}
+
+model InviteLink {
+  id          String    @id @default(cuid())
+  token       String    @unique
+  email       String?
+  createdById String
+  usedById    String?
+  usedAt      DateTime?
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+
+  createdBy User @relation("CreatedInvites", fields: [createdById], references: [id])
+
+  @@index([token])
+  @@index([expiresAt])
+}
+
+// ============================================
+// Branding & Settings
+// ============================================
+
+model BrandingSettings {
+  id             String   @id @default(cuid())
+  companyName    String   @default("Company Name")
+  companyLogo    String?
+  primaryColor   String   @default("#7c8cfb")
+  secondaryColor String   @default("#9b72f2")
+  poweredByText  String   @default("powered by Ozone")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// ============================================
+// Tours
+// ============================================
+
+model Tour {
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
+  description String?
+  thumbnail   String?
+
+  // Client/Project reference
+  clientName String?
+  projectRef String? // Link to main Ozone project ID
+
+  // Status
+  isPublished Boolean @default(false)
+  isArchived  Boolean @default(false)
+
+  // Password protection
+  isPasswordProtected Boolean @default(false)
+  password            String? // Hashed with bcrypt
+
+  // Ambient music
+  ambientMusicUrl    String?
+  ambientMusicVolume Float   @default(0.5)
+
+  // Tour settings (JSON for flexibility)
+  settings Json @default("{}")
+  // Example: { autoRotate: false, showFloorPlan: true, vrEnabled: true }
+
+  // Creator tracking
+  createdById String?
+  createdBy   User?   @relation("CreatedBy", fields: [createdById], references: [id])
+
   // Timestamps
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Relations
-  hotspots      Hotspot[]
-  
+  scenes     Scene[]
+  floorPlans FloorPlan[]
+
+  @@index([slug])
+  @@index([projectRef])
+  @@index([isPublished])
+  @@index([createdById])
+}
+
+// ============================================
+// Scenes
+// ============================================
+
+model Scene {
+  id     String @id @default(cuid())
+  tourId String
+  tour   Tour   @relation(fields: [tourId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+  order       Int     @default(0)
+
+  // Panorama images
+  panoramaUrl  String // Mono equirectangular
+  stereoUrl    String? // Side-by-side stereo for VR (optional)
+  thumbnailUrl String? // Auto-generated thumbnail
+
+  // Initial camera orientation
+  initialYaw   Float  @default(0) // Horizontal rotation (-180 to 180)
+  initialPitch Float  @default(0) // Vertical rotation (-90 to 90)
+  initialFov   Float? // Override default FOV
+
+  // Floor plan positioning
+  floorPlanId String?
+  floorPlan   FloorPlan? @relation(fields: [floorPlanId], references: [id])
+  floorPlanX  Float? // X position on floor plan
+  floorPlanY  Float? // Y position on floor plan
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  hotspots       Hotspot[] @relation("SceneHotspots")
+  targetHotspots Hotspot[] @relation("HotspotTarget")
+
   @@index([tourId])
   @@index([order])
 }
 
-// ===== HOTSPOT =====
+// ============================================
+// Hotspots
+// ============================================
+
 model Hotspot {
-  id        String      @id @default(cuid())
-  sceneId   String
-  scene     Scene       @relation(fields: [sceneId], references: [id], onDelete: Cascade)
-  
-  type      HotspotType @default(NAVIGATION)
-  
+  id      String      @id @default(cuid())
+  sceneId String
+  scene   Scene       @relation("SceneHotspots", fields: [sceneId], references: [id], onDelete: Cascade)
+  type    HotspotType @default(NAVIGATION)
+
   // 3D position (spherical coordinates on panorama sphere)
-  yaw       Float       // Horizontal angle (-180 to 180)
-  pitch     Float       // Vertical angle (-90 to 90)
-  
+  yaw   Float // Horizontal angle (-180 to 180)
+  pitch Float // Vertical angle (-90 to 90)
+
   // For NAVIGATION type
   targetSceneId String?
-  
+  targetScene   Scene?  @relation("HotspotTarget", fields: [targetSceneId], references: [id], onDelete: SetNull)
+
   // For INFO/MEDIA types
-  title     String?
-  content   String?     // Rich text / markdown
-  mediaUrl  String?     // Image or video URL
-  
+  title    String?
+  content  String? // Rich text / markdown
+  mediaUrl String? // Image or video URL
+
   // For LINK type
-  url       String?
-  
+  url String?
+
+  // For AUDIO type
+  audioUrl      String?
+  audioLoop     Boolean @default(false)
+  audioAutoplay Boolean @default(false)
+
   // Visual customization
-  icon      String      @default("arrow")  // arrow, info, image, link, custom
-  color     String      @default("#7c8cfb")
-  scale     Float       @default(1.0)
-  
+  icon  String @default("arrow") // arrow, info, image, link, audio, custom
+  color String @default("#7c8cfb")
+  scale Float  @default(1.0)
+
   // Timestamps
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([sceneId])
   @@index([type])
 }
 
-// ===== FLOOR PLAN =====
+enum HotspotType {
+  NAVIGATION // Links to another scene
+  INFO // Shows text/info modal
+  MEDIA // Shows image/video modal
+  LINK // Opens external URL
+  AUDIO // Plays audio file
+}
+
+// ============================================
+// Floor Plans
+// ============================================
+
 model FloorPlan {
-  id        String   @id @default(cuid())
-  tourId    String
-  tour      Tour     @relation(fields: [tourId], references: [id], onDelete: Cascade)
-  
-  name      String
-  imageUrl  String
-  floor     Int      @default(0)  // For multi-floor buildings
-  
+  id     String @id @default(cuid())
+  tourId String
+  tour   Tour   @relation(fields: [tourId], references: [id], onDelete: Cascade)
+
+  name     String
+  imageUrl String
+  floor    Int    @default(0) // For multi-floor buildings
+
   // Dimensions for positioning calculations
-  width     Float
-  height    Float
-  
+  width  Float?
+  height Float?
+
   // Optional: real-world scale
-  scaleMeters Float?  // Meters per pixel
-  
+  scaleMeters Float? // Meters per pixel
+
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
+  // Relations
+  scenes Scene[]
+
   @@index([tourId])
   @@index([floor])
-}
-
-// ===== ENUMS =====
-enum HotspotType {
-  NAVIGATION  // Links to another scene
-  INFO        // Shows text/info modal
-  MEDIA       // Shows image/video modal
-  LINK        // Opens external URL
 }

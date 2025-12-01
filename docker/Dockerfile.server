@@ -1,0 +1,101 @@
+# ===========================================
+# Ozone Virtual Tours - API Server Dockerfile
+# ===========================================
+
+# -------------------------------------------
+# Base stage: Common setup
+# -------------------------------------------
+FROM node:18-alpine AS base
+
+# Install dependencies for native modules (sharp, etc.)
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    vips-dev
+
+WORKDIR /app
+
+# Copy package files
+COPY server/package*.json ./
+
+# -------------------------------------------
+# Development stage: With dev dependencies
+# -------------------------------------------
+FROM base AS development
+
+# Install all dependencies (including devDependencies)
+RUN npm install
+
+# Copy Prisma schema for generation
+COPY server/prisma ./prisma
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Copy source code
+COPY server/src ./src
+COPY shared ./shared
+
+# Create uploads directory
+RUN mkdir -p /app/uploads/panoramas /app/uploads/thumbnails /app/uploads/floorplans /app/uploads/audio /app/uploads/logos
+
+# Expose port
+EXPOSE 3001
+
+# Development command (overridden by docker-compose)
+CMD ["npm", "run", "dev"]
+
+# -------------------------------------------
+# Dependencies stage: Production deps only
+# -------------------------------------------
+FROM base AS dependencies
+
+# Install production dependencies only
+RUN npm ci --only=production
+
+# Copy Prisma schema
+COPY server/prisma ./prisma
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# -------------------------------------------
+# Production stage: Minimal image
+# -------------------------------------------
+FROM node:18-alpine AS production
+
+# Install runtime dependencies for sharp
+RUN apk add --no-cache vips
+
+WORKDIR /app
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Copy production dependencies
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY --from=dependencies /app/prisma ./prisma
+
+# Copy application code
+COPY server/src ./src
+COPY shared ./shared
+COPY server/package*.json ./
+
+# Create uploads directory with proper permissions
+RUN mkdir -p /app/uploads/panoramas /app/uploads/thumbnails /app/uploads/floorplans /app/uploads/audio /app/uploads/logos && \
+    chown -R nodejs:nodejs /app
+
+# Switch to non-root user
+USER nodejs
+
+# Expose port
+EXPOSE 3001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
+
+# Start the server
+CMD ["node", "src/index.js"]
