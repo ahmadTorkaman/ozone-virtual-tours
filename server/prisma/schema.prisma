@@ -1,0 +1,146 @@
+// Ozone Virtual Tours - Database Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===== TOUR =====
+model Tour {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  thumbnail   String?
+  
+  // Client/Project reference
+  clientName  String?
+  projectRef  String?  // Link to main Ozone project ID
+  
+  // Status
+  isPublished Boolean  @default(false)
+  isArchived  Boolean  @default(false)
+  
+  // Tour settings (JSON for flexibility)
+  settings    Json     @default("{}")
+  // Example: { autoRotate: false, showFloorPlan: true, vrEnabled: true }
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  scenes      Scene[]
+  floorPlans  FloorPlan[]
+  
+  @@index([projectRef])
+  @@index([isPublished])
+}
+
+// ===== SCENE =====
+model Scene {
+  id            String   @id @default(cuid())
+  tourId        String
+  tour          Tour     @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  
+  name          String
+  description   String?
+  order         Int      @default(0)
+  
+  // Panorama images
+  panoramaUrl   String   // Mono equirectangular
+  stereoUrl     String?  // Side-by-side stereo for VR (optional)
+  thumbnailUrl  String?  // Auto-generated thumbnail
+  
+  // Initial camera orientation
+  initialYaw    Float    @default(0)    // Horizontal rotation (-180 to 180)
+  initialPitch  Float    @default(0)    // Vertical rotation (-90 to 90)
+  initialFov    Float?                  // Override default FOV
+  
+  // Floor plan positioning
+  floorPlanId   String?
+  floorPlanX    Float?   // X position on floor plan
+  floorPlanY    Float?   // Y position on floor plan
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  hotspots      Hotspot[]
+  
+  @@index([tourId])
+  @@index([order])
+}
+
+// ===== HOTSPOT =====
+model Hotspot {
+  id        String      @id @default(cuid())
+  sceneId   String
+  scene     Scene       @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  
+  type      HotspotType @default(NAVIGATION)
+  
+  // 3D position (spherical coordinates on panorama sphere)
+  yaw       Float       // Horizontal angle (-180 to 180)
+  pitch     Float       // Vertical angle (-90 to 90)
+  
+  // For NAVIGATION type
+  targetSceneId String?
+  
+  // For INFO/MEDIA types
+  title     String?
+  content   String?     // Rich text / markdown
+  mediaUrl  String?     // Image or video URL
+  
+  // For LINK type
+  url       String?
+  
+  // Visual customization
+  icon      String      @default("arrow")  // arrow, info, image, link, custom
+  color     String      @default("#7c8cfb")
+  scale     Float       @default(1.0)
+  
+  // Timestamps
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  
+  @@index([sceneId])
+  @@index([type])
+}
+
+// ===== FLOOR PLAN =====
+model FloorPlan {
+  id        String   @id @default(cuid())
+  tourId    String
+  tour      Tour     @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  
+  name      String
+  imageUrl  String
+  floor     Int      @default(0)  // For multi-floor buildings
+  
+  // Dimensions for positioning calculations
+  width     Float
+  height    Float
+  
+  // Optional: real-world scale
+  scaleMeters Float?  // Meters per pixel
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([tourId])
+  @@index([floor])
+}
+
+// ===== ENUMS =====
+enum HotspotType {
+  NAVIGATION  // Links to another scene
+  INFO        // Shows text/info modal
+  MEDIA       // Shows image/video modal
+  LINK        // Opens external URL
+}
