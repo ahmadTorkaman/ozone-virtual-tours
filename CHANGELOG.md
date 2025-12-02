@@ -4,11 +4,51 @@ All notable changes to Ozone Virtual Tours will be documented in this file.
 
 ## [Unreleased]
 
-### Phase 4: Analytics & Polish (Next)
-- [ ] Tour analytics (views, duration, interactions)
+### Phase 5: Polish & Deployment (Next)
+- [ ] Mobile responsiveness testing
+- [ ] Security audit
 - [ ] Performance optimizations
-- [ ] Accessibility improvements
-- [ ] Mobile app considerations
+- [ ] Production deployment
+
+---
+
+## [0.5.0] - 2024-12-02
+
+### Phase 4: Viewer Enhancement
+
+#### Added
+
+- **Audio State Management**
+  - Added audio state to Zustand store (audioEnabled, ambientPlaying, volume, mute)
+  - Hotspot audio state tracking
+  - Audio actions (enableAudio, toggleAmbientMusic, playHotspotAudio, etc.)
+
+- **AudioPlayer Component (`AudioPlayer.jsx`)**
+  - Ambient music playback with loop
+  - "Enable Audio" button for browser autoplay policy
+  - Play/pause toggle with animated icon
+  - Volume slider with hover reveal
+  - Mute/unmute toggle
+  - Hotspot audio indicator with stop button
+
+- **Branded Loading Screen**
+  - Company logo or name display
+  - Animated spinner
+  - "Loading virtual tour..." text
+  - "Powered by" branding footer
+  - Fade-in animations
+
+- **Audio Hotspot Support**
+  - Play audio when clicking AUDIO type hotspots
+  - Loop support per hotspot
+  - Stop audio when changing scenes
+  - Visual indicator when audio is playing
+
+#### Changed
+
+- **TourViewer.jsx** - Integrated AudioPlayer, audio hotspot handling, branded loading
+- **tourStore.js** - Added complete audio state and actions
+- **TourViewer.css** - Added branded loading screen styles
 
 ---
 

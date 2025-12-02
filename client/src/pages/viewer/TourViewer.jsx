@@ -1,8 +1,7 @@
 // ===========================================
 // Tour Viewer Page
 // ===========================================
-// This is the public-facing tour viewer accessible via /tour/:slug
-// TODO: Connect to API to load tours by slug
+// Public-facing tour viewer accessible via /tour/:slug
 
 import { useState, useCallback, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
@@ -12,7 +11,9 @@ import InfoModal from '../../components/viewer/InfoModal';
 import SceneThumbnails from '../../components/viewer/SceneThumbnails';
 import TourHeader from '../../components/viewer/TourHeader';
 import GuidedTourControls from '../../components/viewer/GuidedTourControls';
+import AudioPlayer from '../../components/viewer/AudioPlayer';
 import { useBranding } from '../../contexts/BrandingContext';
+import { useTourStore } from '../../stores/tourStore';
 import { toursApi } from '../../services/api';
 import { Loader2, Lock, AlertCircle } from 'lucide-react';
 import './TourViewer.css';
@@ -37,6 +38,9 @@ export default function TourViewer() {
   const [showFloorPlan, setShowFloorPlan] = useState(true);
   const [isGuidedMode, setIsGuidedMode] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // Audio store actions
+  const { playHotspotAudio, stopHotspotAudio } = useTourStore();
 
   useEffect(() => {
     loadTour();
@@ -96,27 +100,47 @@ export default function TourViewer() {
     if (sceneId === currentSceneId || isTransitioning) return;
 
     setIsTransitioning(true);
+    // Stop any playing hotspot audio when changing scenes
+    stopHotspotAudio();
 
     setTimeout(() => {
       setCurrentSceneId(sceneId);
       setIsTransitioning(false);
     }, 300);
-  }, [currentSceneId, isTransitioning]);
+  }, [currentSceneId, isTransitioning, stopHotspotAudio]);
 
   const handleHotspotClick = useCallback((hotspotId) => {
     const hotspot = currentScene?.hotspots?.find(h => h.id === hotspotId);
     if (!hotspot) return;
 
-    if (hotspot.type === 'NAVIGATION' && hotspot.targetSceneId) {
-      navigateToScene(hotspot.targetSceneId);
-    } else if (hotspot.type === 'INFO' || hotspot.type === 'MEDIA') {
-      setInfoModal(hotspot);
-    } else if (hotspot.type === 'LINK' && hotspot.url) {
-      window.open(hotspot.url, '_blank');
-    } else if (hotspot.type === 'AUDIO' && hotspot.audioUrl) {
-      // TODO: Handle audio playback
+    switch (hotspot.type) {
+      case 'NAVIGATION':
+        if (hotspot.targetSceneId) {
+          navigateToScene(hotspot.targetSceneId);
+        }
+        break;
+
+      case 'INFO':
+      case 'MEDIA':
+        setInfoModal(hotspot);
+        break;
+
+      case 'LINK':
+        if (hotspot.url) {
+          window.open(hotspot.url, '_blank');
+        }
+        break;
+
+      case 'AUDIO':
+        if (hotspot.audioUrl) {
+          playHotspotAudio(hotspot);
+        }
+        break;
+
+      default:
+        break;
     }
-  }, [currentScene, navigateToScene]);
+  }, [currentScene, navigateToScene, playHotspotAudio]);
 
   const handleSceneSelect = useCallback((sceneId) => {
     navigateToScene(sceneId);
@@ -134,12 +158,26 @@ export default function TourViewer() {
     navigateToScene(tour.scenes[prevIndex].id);
   }, [currentSceneIndex, tour?.scenes, navigateToScene]);
 
-  // Loading state
+  // Branded Loading Screen
   if (loading) {
     return (
-      <div className="viewer-loading">
-        <Loader2 size={48} className="spinner-icon" />
-        <p>Loading tour...</p>
+      <div className="viewer-loading branded">
+        <div className="loading-content">
+          {branding.companyLogo ? (
+            <img
+              src={branding.companyLogo}
+              alt={branding.companyName}
+              className="loading-logo"
+            />
+          ) : (
+            <h1 className="loading-company">{branding.companyName}</h1>
+          )}
+          <div className="loading-spinner">
+            <Loader2 size={32} className="spinner-icon" />
+          </div>
+          <p className="loading-text">Loading virtual tour...</p>
+          <div className="loading-powered">{branding.poweredByText}</div>
+        </div>
       </div>
     );
   }
@@ -259,6 +297,9 @@ export default function TourViewer() {
         currentSceneId={currentSceneId}
         onSceneSelect={handleSceneSelect}
       />
+
+      {/* Audio Player */}
+      <AudioPlayer ambientMusicUrl={tour.ambientMusicUrl} />
 
       {/* Guided Tour Controls */}
       {isGuidedMode && (

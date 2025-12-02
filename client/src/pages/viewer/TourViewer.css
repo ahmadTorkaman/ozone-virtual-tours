@@ -25,6 +25,71 @@
   }
 }
 
+/* Branded Loading Screen */
+.viewer-loading.branded {
+  background: linear-gradient(135deg, #0f1117 0%, #1a1d27 100%);
+}
+
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  text-align: center;
+}
+
+.loading-logo {
+  height: 60px;
+  width: auto;
+  animation: fadeInScale 0.5s ease-out;
+}
+
+.loading-company {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #e4e4e7;
+  margin: 0;
+  animation: fadeInScale 0.5s ease-out;
+}
+
+.loading-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-text {
+  font-size: 0.9375rem;
+  color: #9ca3af;
+  margin: 0;
+  animation: fadeIn 0.5s ease-out 0.2s both;
+}
+
+.loading-powered {
+  font-size: 0.6875rem;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 1rem;
+  animation: fadeIn 0.5s ease-out 0.4s both;
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 /* Error State */
 .viewer-error {
   display: flex;
