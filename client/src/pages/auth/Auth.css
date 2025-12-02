@@ -168,3 +168,28 @@
   opacity: 0.7;
   cursor: not-allowed;
 }
+
+/* Mobile Responsiveness */
+@media (max-width: 480px) {
+  .auth-page {
+    padding: 1rem;
+  }
+
+  .auth-header {
+    padding: 1.5rem 1.5rem 1rem;
+  }
+
+  .auth-form,
+  .auth-bootstrap,
+  .auth-error-state {
+    padding: 1.5rem;
+  }
+
+  .auth-brand {
+    font-size: 1.25rem;
+  }
+
+  .auth-footer {
+    padding: 0.75rem 1.5rem;
+  }
+}

@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import fs from 'fs/promises';
 import { requireAuth } from '../middleware/auth.js';
+import { validateFileType, sanitizeFilename } from '../middleware/fileValidator.js';
 
 const router = express.Router();
 
@@ -64,7 +65,7 @@ const getBaseUrl = () => process.env.BASE_URL || `http://localhost:${process.env
 // ===========================================
 // POST /api/upload/panorama - Upload panorama image
 // ===========================================
-router.post('/panorama', requireAuth, uploadImage.single('file'), async (req, res, next) => {
+router.post('/panorama', requireAuth, uploadImage.single('file'), validateFileType('image'), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: { message: 'No file uploaded' } });
@@ -110,7 +111,7 @@ router.post('/panorama', requireAuth, uploadImage.single('file'), async (req, re
 // ===========================================
 // POST /api/upload/stereo - Upload stereo panorama
 // ===========================================
-router.post('/stereo', requireAuth, uploadImage.single('file'), async (req, res, next) => {
+router.post('/stereo', requireAuth, uploadImage.single('file'), validateFileType('image'), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: { message: 'No file uploaded' } });
@@ -151,7 +152,7 @@ router.post('/stereo', requireAuth, uploadImage.single('file'), async (req, res,
 // ===========================================
 // POST /api/upload/floorplan - Upload floor plan image
 // ===========================================
-router.post('/floorplan', requireAuth, uploadImage.single('file'), async (req, res, next) => {
+router.post('/floorplan', requireAuth, uploadImage.single('file'), validateFileType('image'), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: { message: 'No file uploaded' } });
@@ -183,7 +184,7 @@ router.post('/floorplan', requireAuth, uploadImage.single('file'), async (req, r
 // ===========================================
 // POST /api/upload/audio - Upload audio file
 // ===========================================
-router.post('/audio', requireAuth, uploadAudio.single('file'), async (req, res, next) => {
+router.post('/audio', requireAuth, uploadAudio.single('file'), validateFileType('audio'), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: { message: 'No file uploaded' } });
@@ -223,7 +224,7 @@ router.post('/audio', requireAuth, uploadAudio.single('file'), async (req, res, 
 // ===========================================
 // POST /api/upload/logo - Upload company logo
 // ===========================================
-router.post('/logo', requireAuth, uploadImage.single('file'), async (req, res, next) => {
+router.post('/logo', requireAuth, uploadImage.single('file'), validateFileType('image'), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: { message: 'No file uploaded' } });

@@ -7,6 +7,7 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import { logAuth } from '../utils/logger.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -78,6 +79,7 @@ router.post('/login', async (req, res) => {
     });
 
     if (!user) {
+      logAuth('login', null, false, { email, reason: 'user_not_found' });
       return res.status(401).json({
         error: { message: 'No account found with this email. Please use an invite link to register.' }
       });
@@ -94,6 +96,8 @@ router.post('/login', async (req, res) => {
       maxAge: SESSION_DURATION_MS
     });
 
+    logAuth('login', user.id, true, { email: user.email });
+
     res.json({
       user: {
         id: user.id,
@@ -106,7 +110,7 @@ router.post('/login', async (req, res) => {
       expiresAt
     });
   } catch (error) {
-    console.error('Login error:', error);
+    logAuth('login', null, false, { error: error.message });
     res.status(500).json({ error: { message: 'Login failed' } });
   }
 });
@@ -124,9 +128,11 @@ router.post('/logout', requireAuth, async (req, res) => {
     // Clear cookie
     res.clearCookie('sessionToken');
 
+    logAuth('logout', req.user.id, true);
+
     res.json({ message: 'Logged out successfully' });
   } catch (error) {
-    console.error('Logout error:', error);
+    logAuth('logout', req.user?.id, false, { error: error.message });
     res.status(500).json({ error: { message: 'Logout failed' } });
   }
 });
@@ -153,6 +159,8 @@ router.post('/invite', requireAuth, async (req, res) => {
 
     const inviteUrl = `${process.env.BASE_URL || 'http://localhost:5173'}/register/${token}`;
 
+    logAuth('invite_created', req.user.id, true, { invitedEmail: email || 'any' });
+
     res.status(201).json({
       invite: {
         id: invite.id,
@@ -163,7 +171,7 @@ router.post('/invite', requireAuth, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Create invite error:', error);
+    logAuth('invite_created', req.user?.id, false, { error: error.message });
     res.status(500).json({ error: { message: 'Failed to create invite' } });
   }
 });
@@ -295,6 +303,8 @@ router.post('/register', async (req, res) => {
       maxAge: SESSION_DURATION_MS
     });
 
+    logAuth('register', user.id, true, { email: user.email, role });
+
     res.status(201).json({
       user: {
         id: user.id,
@@ -307,7 +317,7 @@ router.post('/register', async (req, res) => {
       expiresAt: session.expiresAt
     });
   } catch (error) {
-    console.error('Register error:', error);
+    logAuth('register', null, false, { error: error.message });
     res.status(500).json({ error: { message: 'Registration failed' } });
   }
 });

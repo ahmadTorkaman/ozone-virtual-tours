@@ -19,6 +19,13 @@ import floorPlansRouter from './routes/floorplans.js';
 import uploadRouter from './routes/upload.js';
 import settingsRouter from './routes/settings.js';
 
+// Middleware
+import { apiLimiter, authLimiter, uploadLimiter } from './middleware/rateLimiter.js';
+import { requestLogger } from './middleware/requestLogger.js';
+
+// Utils
+import logger, { logError } from './utils/logger.js';
+
 // Load environment variables
 dotenv.config();
 
@@ -51,6 +58,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Cookie parsing
 app.use(cookieParser());
 
+// Request logging
+app.use(requestLogger);
+
 // ===========================================
 // Static Files
 // ===========================================
@@ -75,12 +85,15 @@ app.get('/health', (req, res) => {
 // API Routes
 // ===========================================
 
-app.use('/api/auth', authRouter);
+// Apply rate limiting
+app.use('/api/auth', authLimiter, authRouter);
+app.use('/api/upload', uploadLimiter, uploadRouter);
+app.use('/api', apiLimiter); // General API rate limit
+
 app.use('/api/tours', toursRouter);
 app.use('/api/tours', scenesRouter);      // /api/tours/:tourId/scenes/*
 app.use('/api/tours', hotspotsRouter);    // /api/tours/:tourId/scenes/:sceneId/hotspots/*
 app.use('/api/tours', floorPlansRouter);  // /api/tours/:tourId/floorplans/*
-app.use('/api/upload', uploadRouter);
 app.use('/api/settings', settingsRouter);
 
 // ===========================================
@@ -89,7 +102,8 @@ app.use('/api/settings', settingsRouter);
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  // Log the error with structured logging
+  logError(err, req);
 
   // Handle Prisma errors
   if (err.code === 'P2002') {
@@ -101,6 +115,13 @@ app.use((err, req, res, next) => {
   if (err.code === 'P2025') {
     return res.status(404).json({
       error: { message: 'Record not found' }
+    });
+  }
+
+  // Handle multer errors
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({
+      error: { message: 'File too large' }
     });
   }
 
@@ -122,9 +143,11 @@ app.use((req, res) => {
 // ===========================================
 
 app.listen(PORT, () => {
-  console.log(`🚀 Ozone Virtual Tours API running on port ${PORT}`);
-  console.log(`   Health check: http://localhost:${PORT}/health`);
-  console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info('Server started', {
+    port: PORT,
+    environment: process.env.NODE_ENV || 'development',
+    healthCheck: `http://localhost:${PORT}/health`
+  });
 });
 
 export default app;

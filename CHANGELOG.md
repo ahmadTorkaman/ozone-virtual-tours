@@ -4,11 +4,58 @@ All notable changes to Ozone Virtual Tours will be documented in this file.
 
 ## [Unreleased]
 
-### Phase 5: Polish & Deployment (Next)
-- [ ] Mobile responsiveness testing
-- [ ] Security audit
-- [ ] Performance optimizations
-- [ ] Production deployment
+### Future Enhancements
+- [ ] Analytics dashboard
+- [ ] Multi-language support
+- [ ] Custom domain per tour
+- [ ] VR headset optimizations
+
+---
+
+## [0.6.0] - 2024-12-02
+
+### Phase 5: Polish & Deployment
+
+#### Added
+
+- **Security Hardening**
+  - Rate limiting middleware (`rateLimiter.js`)
+    - Auth endpoints: 5 requests/minute
+    - Upload endpoints: 10 requests/minute
+    - General API: 100 requests/minute
+    - Public endpoints: 200 requests/minute
+  - File type validation using magic bytes (`fileValidator.js`)
+    - Validates actual file content, not just MIME type
+    - Sanitizes filenames to prevent directory traversal
+  - Applied rate limiting to all API routes
+  - Applied file validation to all upload routes
+
+- **Structured Logging**
+  - Winston-based logging system (`utils/logger.js`)
+  - JSON output for production (log aggregator friendly)
+  - Colorized readable output for development
+  - Request logging middleware with timing
+  - Authentication event logging
+  - File rotation for error and combined logs
+  - Configurable via LOG_LEVEL environment variable
+
+- **Production Docker Configuration**
+  - `docker-compose.prod.yml` with resource limits
+  - `nginx.prod.conf` with SSL/HTTPS enabled
+  - Memory limits and restart policies
+  - JSON file logging with rotation
+  - Required environment variable validation
+
+- **Mobile Responsiveness**
+  - Added 480px breakpoint for auth pages
+  - Verified responsive styles across all components
+
+#### Changed
+
+- **Server index.js** - Integrated request logger and structured error logging
+- **Auth routes** - Added authentication event logging
+- **Upload routes** - Added magic byte validation to all endpoints
+- **.env.example** - Added LOG_LEVEL and LOG_DIR configuration
 
 ---
 
