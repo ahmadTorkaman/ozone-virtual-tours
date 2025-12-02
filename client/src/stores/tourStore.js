@@ -17,6 +17,14 @@ export const useTourStore = create((set, get) => ({
   isVRMode: false,
   vrSupported: false,
 
+  // Audio State
+  audioEnabled: false,       // User has interacted to enable audio
+  ambientPlaying: false,     // Is ambient music playing
+  ambientVolume: 0.5,        // Ambient music volume (0-1)
+  ambientMuted: false,       // Is ambient music muted
+  hotspotAudio: null,        // Currently playing hotspot audio { id, url, loop }
+  hotspotPlaying: false,     // Is hotspot audio playing
+
   // Settings
   settings: {
     autoRotate: false,
@@ -32,6 +40,7 @@ export const useTourStore = create((set, get) => ({
     set({
       tour,
       currentSceneId: tour?.scenes?.[0]?.id || null,
+      ambientVolume: tour?.ambientMusicVolume || 0.5,
       error: null
     });
   },
@@ -82,6 +91,38 @@ export const useTourStore = create((set, get) => ({
   // VR
   setVRMode: (isVR) => set({ isVRMode: isVR }),
   setVRSupported: (supported) => set({ vrSupported: supported }),
+
+  // Audio actions
+  enableAudio: () => set({ audioEnabled: true }),
+
+  setAmbientPlaying: (playing) => set({ ambientPlaying: playing }),
+
+  toggleAmbientMusic: () => {
+    const { ambientPlaying, audioEnabled } = get();
+    if (!audioEnabled) {
+      set({ audioEnabled: true, ambientPlaying: true });
+    } else {
+      set({ ambientPlaying: !ambientPlaying });
+    }
+  },
+
+  setAmbientVolume: (volume) => set({ ambientVolume: Math.max(0, Math.min(1, volume)) }),
+
+  toggleAmbientMute: () => set(state => ({ ambientMuted: !state.ambientMuted })),
+
+  playHotspotAudio: (hotspot) => {
+    set({
+      hotspotAudio: {
+        id: hotspot.id,
+        url: hotspot.audioUrl,
+        loop: hotspot.audioLoop || false
+      },
+      hotspotPlaying: true,
+      audioEnabled: true
+    });
+  },
+
+  stopHotspotAudio: () => set({ hotspotAudio: null, hotspotPlaying: false }),
 
   // Settings
   updateSettings: (newSettings) => set(state => ({

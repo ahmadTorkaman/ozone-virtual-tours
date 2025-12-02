@@ -1,0 +1,113 @@
+# Ozone Virtual Tours - Docker Compose Configuration
+# Usage: docker-compose up -d
+
+version: '3.8'
+
+services:
+  # ===========================================
+  # PostgreSQL Database
+  # ===========================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: ozone-tours-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ozone}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ozone_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-ozone_tours}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ozone} -d ${POSTGRES_DB:-ozone_tours}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ozone-network
+
+  # ===========================================
+  # Node.js API Server
+  # ===========================================
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.server
+    container_name: ozone-tours-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ozone}:${POSTGRES_PASSWORD:-ozone_secret}@postgres:5432/${POSTGRES_DB:-ozone_tours}?schema=public
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+      SESSION_SECRET: ${SESSION_SECRET:-change-this-in-production}
+      BASE_URL: ${BASE_URL:-http://localhost}
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ozone-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ===========================================
+  # Nginx Reverse Proxy + Static Files
+  # ===========================================
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.client
+    container_name: ozone-tours-nginx
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - uploads_data:/app/uploads:ro
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - certbot_certs:/etc/letsencrypt:ro
+      - certbot_www:/var/www/certbot:ro
+    depends_on:
+      - api
+    networks:
+      - ozone-network
+
+  # ===========================================
+  # Certbot for SSL (optional, run manually)
+  # ===========================================
+  certbot:
+    image: certbot/certbot
+    container_name: ozone-tours-certbot
+    volumes:
+      - certbot_certs:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    command: echo "Run 'docker-compose run certbot certonly --webroot -w /var/www/certbot -d yourdomain.com' to get certificates"
+    networks:
+      - ozone-network
+
+# ===========================================
+# Volumes
+# ===========================================
+volumes:
+  postgres_data:
+    name: ozone-tours-postgres
+  uploads_data:
+    name: ozone-tours-uploads
+  certbot_certs:
+    name: ozone-tours-certs
+  certbot_www:
+    name: ozone-tours-certbot-www
+
+# ===========================================
+# Networks
+# ===========================================
+networks:
+  ozone-network:
+    name: ozone-tours-network
+    driver: bridge

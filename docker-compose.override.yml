@@ -1,0 +1,46 @@
+# Development overrides for docker-compose
+# This file is automatically loaded alongside docker-compose.yml
+# For production, use: docker-compose -f docker-compose.yml up
+
+version: '3.8'
+
+services:
+  # ===========================================
+  # Development: API with hot reload
+  # ===========================================
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.server
+      target: development
+    volumes:
+      - ./server/src:/app/src:ro
+      - ./server/prisma:/app/prisma:ro
+      - ./shared:/app/shared:ro
+      - uploads_data:/app/uploads
+    environment:
+      NODE_ENV: development
+    command: npm run dev
+
+  # ===========================================
+  # Development: Nginx without SSL
+  # ===========================================
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.client
+      target: development
+    volumes:
+      - ./client/src:/app/client/src:ro
+      - ./client/public:/app/client/public:ro
+      - uploads_data:/app/uploads:ro
+    ports:
+      - "80:80"
+      - "5173:5173"
+
+  # ===========================================
+  # Development: Expose PostgreSQL port
+  # ===========================================
+  postgres:
+    ports:
+      - "5432:5432"
