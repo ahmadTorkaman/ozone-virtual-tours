@@ -398,14 +398,15 @@ router.get('/bootstrap', async (req, res) => {
       });
 
       if (!bootstrapInvite) {
-        // Create a system user placeholder for bootstrap
-          bootstrapInvite = await prisma.inviteLink.create({
-    data: {
-      token,
-      createdById: null, // No creator for bootstrap invite
-      expiresAt
-    }
-  });
+        // Create bootstrap invite with no creator
+        bootstrapInvite = await prisma.inviteLink.create({
+          data: {
+            token,
+            createdById: null,
+            expiresAt
+          }
+        });
+      }
 
       return res.json({
         needsBootstrap: true,
