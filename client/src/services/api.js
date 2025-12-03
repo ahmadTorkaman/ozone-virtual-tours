@@ -6,18 +6,50 @@ const API_BASE = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}/api`
   : '/api';
 
+// Token storage key
+const TOKEN_KEY = 'ozone_session_token';
+
+/**
+ * Get stored auth token
+ */
+export function getAuthToken() {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+/**
+ * Set auth token
+ */
+export function setAuthToken(token) {
+  if (token) {
+    localStorage.setItem(TOKEN_KEY, token);
+  } else {
+    localStorage.removeItem(TOKEN_KEY);
+  }
+}
+
+/**
+ * Clear auth token
+ */
+export function clearAuthToken() {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
 /**
  * Make an API request
  */
 async function request(endpoint, options = {}) {
   const url = `${API_BASE}${endpoint}`;
 
+  // Get stored token for Authorization header
+  const token = getAuthToken();
+
   const config = {
     headers: {
       'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
       ...options.headers,
     },
-    credentials: 'include', // Include cookies for session
+    credentials: 'include', // Still include cookies as fallback
     ...options,
   };
 

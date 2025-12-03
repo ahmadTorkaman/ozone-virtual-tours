@@ -3,7 +3,7 @@
 // ===========================================
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { authApi } from '../services/api';
+import { authApi, setAuthToken, clearAuthToken } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -37,9 +37,13 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (email) => {
     try {
       setError(null);
-      const { user } = await authApi.login(email);
-      setUser(user);
-      return user;
+      const response = await authApi.login(email);
+      // Store token for cross-origin requests
+      if (response.token) {
+        setAuthToken(response.token);
+      }
+      setUser(response.user);
+      return response.user;
     } catch (err) {
       setError(err.message);
       throw err;
@@ -52,6 +56,8 @@ export function AuthProvider({ children }) {
     } catch (err) {
       console.error('Logout error:', err);
     } finally {
+      // Clear stored token
+      clearAuthToken();
       setUser(null);
     }
   }, []);
@@ -59,9 +65,13 @@ export function AuthProvider({ children }) {
   const register = useCallback(async (data) => {
     try {
       setError(null);
-      const { user } = await authApi.register(data);
-      setUser(user);
-      return user;
+      const response = await authApi.register(data);
+      // Store token for cross-origin requests
+      if (response.token) {
+        setAuthToken(response.token);
+      }
+      setUser(response.user);
+      return response.user;
     } catch (err) {
       setError(err.message);
       throw err;
