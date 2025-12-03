@@ -26,7 +26,7 @@ const TABS = [
 export default function TourEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const isNew = id === 'new';
+  const isNew = !id; // No id means new tour (from /admin/tours/new route)
 
   // Tour state
   const [tour, setTour] = useState(null);
