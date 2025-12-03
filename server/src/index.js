@@ -66,9 +66,13 @@ app.use(requestLogger);
 // Static Files
 // ===========================================
 
-// Serve uploaded files
+// Serve uploaded files with CORS headers
 const uploadsPath = process.env.UPLOAD_DIR || path.join(__dirname, '../../uploads');
-app.use('/uploads', express.static(uploadsPath));
+app.use('/uploads', (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+  next();
+}, express.static(uploadsPath));
 
 // ===========================================
 // Health Check
