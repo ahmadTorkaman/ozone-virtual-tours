@@ -18,6 +18,7 @@ import hotspotsRouter from './routes/hotspots.js';
 import floorPlansRouter from './routes/floorplans.js';
 import uploadRouter from './routes/upload.js';
 import settingsRouter from './routes/settings.js';
+import libraryRouter from './routes/library.js';
 
 // Middleware
 import { apiLimiter, authLimiter, uploadLimiter } from './middleware/rateLimiter.js';
@@ -95,6 +96,7 @@ app.use('/api/tours', scenesRouter);      // /api/tours/:tourId/scenes/*
 app.use('/api/tours', hotspotsRouter);    // /api/tours/:tourId/scenes/:sceneId/hotspots/*
 app.use('/api/tours', floorPlansRouter);  // /api/tours/:tourId/floorplans/*
 app.use('/api/settings', settingsRouter);
+app.use('/api/library', libraryRouter);   // Material library for Ozone Material Editor
 
 // ===========================================
 // Error Handling

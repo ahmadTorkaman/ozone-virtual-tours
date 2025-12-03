@@ -28,6 +28,7 @@ model User {
   sessions Session[]
   tours    Tour[]       @relation("CreatedBy")
   invites  InviteLink[] @relation("CreatedInvites")
+   materialLibrary MaterialLibrary?
 
   @@index([email])
 }
@@ -252,4 +253,24 @@ model FloorPlan {
 
   @@index([tourId])
   @@index([floor])
+}
+
+// ============================================
+// Material Library (for Ozone Material Editor)
+// ============================================
+
+model MaterialLibrary {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  materials  Json     @default("{}")
+  categories Json     @default("[]")
+
+  lastSyncedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
