@@ -91,11 +91,14 @@ router.post('/panorama', requireAuth, uploadImage.single('file'), validateFileTy
     // Get image metadata
     const metadata = await sharp(req.file.buffer).metadata();
 
+    // Build full URLs for cross-origin access
+    const baseUrl = getBaseUrl();
+
     res.json({
       success: true,
-      url: `/uploads/panoramas/${filename}`,
-      panoramaUrl: `/uploads/panoramas/${filename}`,
-      thumbnailUrl: `/uploads/thumbnails/${thumbnailFilename}`,
+      url: `${baseUrl}/uploads/panoramas/${filename}`,
+      panoramaUrl: `${baseUrl}/uploads/panoramas/${filename}`,
+      thumbnailUrl: `${baseUrl}/uploads/thumbnails/${thumbnailFilename}`,
       metadata: {
         width: metadata.width,
         height: metadata.height,
@@ -134,10 +137,11 @@ router.post('/stereo', requireAuth, uploadImage.single('file'), validateFileType
       console.warn(`Stereo panorama has unusual aspect ratio: ${aspectRatio.toFixed(2)}`);
     }
 
+    const baseUrl = getBaseUrl();
     res.json({
       success: true,
-      url: `/uploads/panoramas/${filename}`,
-      stereoUrl: `/uploads/panoramas/${filename}`,
+      url: `${baseUrl}/uploads/panoramas/${filename}`,
+      stereoUrl: `${baseUrl}/uploads/panoramas/${filename}`,
       metadata: {
         width: metadata.width,
         height: metadata.height,
@@ -169,10 +173,11 @@ router.post('/floorplan', requireAuth, uploadImage.single('file'), validateFileT
 
     const metadata = await sharp(req.file.buffer).metadata();
 
+    const baseUrl = getBaseUrl();
     res.json({
       success: true,
-      url: `/uploads/floorplans/${filename}`,
-      imageUrl: `/uploads/floorplans/${filename}`,
+      url: `${baseUrl}/uploads/floorplans/${filename}`,
+      imageUrl: `${baseUrl}/uploads/floorplans/${filename}`,
       width: metadata.width,
       height: metadata.height
     });
@@ -206,10 +211,11 @@ router.post('/audio', requireAuth, uploadAudio.single('file'), validateFileType(
     const audioPath = path.join(UPLOADS_DIR, 'audio', filename);
     await fs.writeFile(audioPath, req.file.buffer);
 
+    const baseUrl = getBaseUrl();
     res.json({
       success: true,
-      url: `/uploads/audio/${filename}`,
-      audioUrl: `/uploads/audio/${filename}`,
+      url: `${baseUrl}/uploads/audio/${filename}`,
+      audioUrl: `${baseUrl}/uploads/audio/${filename}`,
       metadata: {
         mimetype: req.file.mimetype,
         size: req.file.size,
@@ -242,10 +248,11 @@ router.post('/logo', requireAuth, uploadImage.single('file'), validateFileType('
 
     const metadata = await sharp(req.file.buffer).metadata();
 
+    const baseUrl = getBaseUrl();
     res.json({
       success: true,
-      url: `/uploads/logos/${filename}`,
-      logoUrl: `/uploads/logos/${filename}`,
+      url: `${baseUrl}/uploads/logos/${filename}`,
+      logoUrl: `${baseUrl}/uploads/logos/${filename}`,
       metadata: {
         width: metadata.width,
         height: metadata.height
