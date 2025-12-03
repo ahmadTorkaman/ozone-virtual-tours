@@ -155,16 +155,6 @@ export default function TourEditor() {
     }
   };
 
-  // Loading state
-  if (loading) {
-    return (
-      <div className="tour-editor-loading">
-        <Loader2 size={48} className="spinner" />
-        <p>Loading tour...</p>
-      </div>
-    );
-  }
-
   // Error state (couldn't load)
   if (!tour && error) {
     return (
@@ -176,6 +166,16 @@ export default function TourEditor() {
           <ArrowLeft size={18} />
           Back to Tours
         </button>
+      </div>
+    );
+  }
+
+  // Loading state (also wait for tour to be initialized)
+  if (loading || !tour) {
+    return (
+      <div className="tour-editor-loading">
+        <Loader2 size={48} className="spinner" />
+        <p>{isNew ? 'Preparing editor...' : 'Loading tour...'}</p>
       </div>
     );
   }
