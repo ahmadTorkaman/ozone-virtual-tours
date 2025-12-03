@@ -56,7 +56,7 @@ model InviteLink {
   id          String    @id @default(cuid())
   token       String    @unique
   email       String?
-  createdById String
+  createdById String?  @relation("CreatedInvites", fields: [createdById], references: [id])
   usedById    String?
   usedAt      DateTime?
   expiresAt   DateTime
