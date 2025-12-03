@@ -391,7 +391,7 @@ router.get('/bootstrap', async (req, res) => {
       // Check if bootstrap invite already exists
       let bootstrapInvite = await prisma.inviteLink.findFirst({
         where: {
-          createdById: 'SYSTEM',
+          createdById: null,
           usedAt: null,
           expiresAt: { gt: new Date() }
         }
@@ -399,14 +399,13 @@ router.get('/bootstrap', async (req, res) => {
 
       if (!bootstrapInvite) {
         // Create a system user placeholder for bootstrap
-        bootstrapInvite = await prisma.inviteLink.create({
-          data: {
-            token,
-            createdById: 'SYSTEM', // Special marker for bootstrap
-            expiresAt
-          }
-        });
-      }
+          bootstrapInvite = await prisma.inviteLink.create({
+    data: {
+      token,
+      createdById: null, // No creator for bootstrap invite
+      expiresAt
+    }
+  });
 
       return res.json({
         needsBootstrap: true,
