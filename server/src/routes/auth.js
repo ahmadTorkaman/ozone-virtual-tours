@@ -157,7 +157,9 @@ router.post('/invite', requireAuth, async (req, res) => {
       }
     });
 
-    const inviteUrl = `${process.env.BASE_URL || 'http://localhost:5173'}/register/${token}`;
+    // Use CORS_ORIGIN for invite URL since that's the frontend
+    const frontendUrl = process.env.CORS_ORIGIN || 'http://localhost:5173';
+    const inviteUrl = `${frontendUrl}/register/${token}`;
 
     logAuth('invite_created', req.user.id, true, { invitedEmail: email || 'any' });
 
