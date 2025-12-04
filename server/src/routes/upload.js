@@ -8,8 +8,12 @@ import sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import fs from 'fs/promises';
+import { fileURLToPath } from 'url';
 import { requireAuth } from '../middleware/auth.js';
 import { validateFileType, sanitizeFilename } from '../middleware/fileValidator.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
@@ -45,8 +49,9 @@ const uploadAudio = multer({
   }
 });
 
-// Ensure uploads directories exist
-const UPLOADS_DIR = process.env.UPLOADS_DIR || './uploads';
+// Ensure uploads directories exist - must match path in index.js
+// From routes/upload.js, go up 3 levels to reach server/, then into uploads
+const UPLOADS_DIR = process.env.UPLOAD_DIR || path.join(__dirname, '../../../uploads');
 const ensureUploadsDir = async () => {
   try {
     const dirs = ['panoramas', 'thumbnails', 'floorplans', 'audio', 'logos'];
