@@ -1246,6 +1246,111 @@ ozone-virtual-tours/
 
 ---
 
+### Phase 6: Material Editor ✅ COMPLETED
+
+> **Goal:** Provide a comprehensive tool for creating and managing PBR materials for 3D scenes
+> **Status:** Completed December 2024
+
+#### 6.1 Material Library Backend
+
+**Tasks:**
+
+- [x] Create MaterialLibrary database model
+  - JSON storage for flexible material properties
+  - Per-user library with sync timestamps
+  - Category array storage
+- [x] Implement Material Library API routes
+  - `GET /api/library` - Fetch user's library
+  - `POST /api/library/sync` - Sync entire library
+  - `GET/PUT/DELETE /api/library/material/:id` - Material CRUD
+  - `POST /api/library/categories` - Update categories
+- [x] Add texture upload endpoint
+  - `POST /api/upload/texture`
+  - Support for all PBR texture types
+  - Auto-resize large textures to 2048x2048
+
+**Deliverables:**
+- MaterialLibrary model in schema
+- Complete library API
+- Texture upload support
+
+#### 6.2 Material Editor Frontend
+
+**Tasks:**
+
+- [x] Install React Three Fiber dependencies
+  - three, @react-three/fiber, @react-three/drei
+- [x] Create Material Store (Zustand)
+  - Materials and categories state
+  - CRUD operations
+  - Preview settings
+  - Import/export functionality
+- [x] Build MaterialPreview3D component
+  - Live 3D preview with R3F
+  - 5 preview shapes (sphere, cube, torus, torusKnot, plane)
+  - 10 HDR environment presets
+  - Interactive drag controls
+- [x] Build MaterialEditor modal
+  - Frosted glass UI design
+  - Three-tab interface (Properties, Textures, Presets)
+  - Real-time preview updates
+  - Full PBR property controls
+- [x] Build MaterialCard component
+  - Mini 3D preview
+  - Quick actions (edit, duplicate, delete)
+  - Category badge
+- [x] Build CategoryManager component
+  - Category list with counts
+  - Create/rename/delete categories
+  - Active filter state
+
+**Deliverables:**
+- Material Editor modal
+- Material Library page
+- 3D preview component
+
+#### 6.3 Materials Page Integration
+
+**Tasks:**
+
+- [x] Create Materials.jsx page
+  - Grid and list view modes
+  - Search functionality
+  - Category filtering sidebar
+  - Sync status indicator
+- [x] Add route to App.jsx
+  - `/admin/materials` route
+- [x] Add navigation to AdminLayout
+  - Materials link with Box icon
+- [x] Implement import/export
+  - Export library as JSON
+  - Import with merge/replace options
+
+**Deliverables:**
+- `/admin/materials` page
+- Navigation integration
+- Import/export feature
+
+#### 6.4 Material Presets
+
+**Tasks:**
+
+- [x] Create 14 built-in presets
+  - Metals: Chrome, Gold, Copper, Brushed Steel
+  - Plastics: Rubber, Plastic
+  - Glass: Clear Glass, Frosted Glass
+  - Natural: Wood, Marble, Concrete
+  - Fabric: Fabric, Leather
+  - Special: Emissive
+- [x] Preset quick-create dropdown
+  - Apply preset on material creation
+
+**Deliverables:**
+- 14 material presets
+- Preset application UI
+
+---
+
 ## Database Schema
 
 ### Complete Schema

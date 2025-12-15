@@ -9,6 +9,113 @@ All notable changes to Ozone Virtual Tours will be documented in this file.
 - [ ] Multi-language support
 - [ ] Custom domain per tour
 - [ ] VR headset optimizations
+- [ ] Material library sharing between users
+
+---
+
+## [0.7.0] - 2024-12-15
+
+### Material Editor - Ozone Material Library
+
+#### Added
+
+- **Material Library Page (`/admin/materials`)**
+  - Grid and list view modes for material display
+  - Category-based filtering sidebar
+  - Search functionality for finding materials
+  - Cloud sync status indicator with timestamps
+  - Import/Export materials as JSON files
+
+- **Material Editor Modal**
+  - Frosted glass UI design with smooth animations
+  - Full PBR (Physically Based Rendering) property controls:
+    - Base color with color picker
+    - Metalness slider (0-1)
+    - Roughness slider (0-1)
+    - Opacity with transparency toggle
+    - Emissive color and intensity
+    - Normal scale and displacement scale
+  - Three-tab interface: Properties, Textures, Presets
+  - Real-time preview updates
+
+- **Live 3D Preview (React Three Fiber)**
+  - Five preview shapes: Sphere, Cube, Torus, TorusKnot, Plane
+  - Ten HDR environment presets: Studio, Sunset, Warehouse, Forest, Night, City, Dawn, Apartment, Lobby, Park
+  - Interactive drag-to-rotate controls (PresentationControls)
+  - Contact shadows for grounding
+  - Floating animation effects
+
+- **Material Presets (14 built-in)**
+  - Metals: Chrome, Gold, Copper, Brushed Steel
+  - Plastics: Rubber, Plastic
+  - Glass: Clear Glass, Frosted Glass
+  - Natural: Wood, Marble, Concrete
+  - Fabric: Fabric, Leather
+  - Special: Emissive
+
+- **Texture Map Support**
+  - Albedo/Color map
+  - Normal map with adjustable scale
+  - Roughness map
+  - Metalness map
+  - Ambient Occlusion (AO) map
+  - Height/Displacement map
+  - Emissive map
+
+- **Category Management**
+  - Create custom categories
+  - Rename existing categories
+  - Delete categories (with material count warnings)
+  - Default categories: Metals, Plastics, Glass, Wood, Fabric, Stone, Custom
+
+- **Material Store (Zustand)**
+  - `materialStore.js` - Complete state management
+  - CRUD operations for materials
+  - Category management actions
+  - Filter and search state
+  - Preview settings state
+  - Import/Export functionality
+
+- **Backend API Endpoints**
+  - `GET /api/library` - Fetch user's material library
+  - `POST /api/library/sync` - Sync entire library to cloud
+  - `GET /api/library/material/:id` - Get single material
+  - `PUT /api/library/material/:id` - Create/update material
+  - `DELETE /api/library/material/:id` - Delete material
+  - `POST /api/library/categories` - Update categories
+
+- **Texture Upload Endpoint**
+  - `POST /api/upload/texture` - Upload material textures
+  - Supports texture types: normal, roughness, ao, height, emissive, albedo, metalness, opacity
+  - Auto-resize textures larger than 2048x2048
+  - PNG format with 95% quality
+
+- **Database Schema**
+  - `MaterialLibrary` model with JSON storage for flexible material properties
+  - User relationship for per-user libraries
+  - Category array storage
+  - Sync timestamp tracking
+
+- **New Components**
+  - `MaterialPreview3D.jsx` - React Three Fiber 3D preview
+  - `MaterialPreviewMini.jsx` - Compact preview for cards
+  - `MaterialCompareView.jsx` - Side-by-side comparison
+  - `MaterialEditor.jsx` - Full editor modal
+  - `MaterialCard.jsx` - Grid display card
+  - `MaterialCardCompact.jsx` - List display card
+  - `CategoryManager.jsx` - Category sidebar
+
+- **Dependencies Added**
+  - `three` ^0.160.0 - Three.js core
+  - `@react-three/fiber` ^8.15.0 - React renderer for Three.js
+  - `@react-three/drei` ^9.92.0 - Useful helpers for R3F
+
+#### Changed
+
+- **App.jsx** - Added `/admin/materials` route
+- **AdminLayout.jsx** - Added Materials navigation item with Box icon
+- **api.js** - Added `libraryApi` and `uploadApi.uploadTexture` methods
+- **upload.js** - Added texture upload endpoint, updated validTypes array
 
 ---
 

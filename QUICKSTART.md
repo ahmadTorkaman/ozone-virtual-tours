@@ -75,14 +75,15 @@ ozone-virtual-tours/
 │   │   └── demo/              # Demo panorama images
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── viewer/        # Tour viewer components
-│   │   │   ├── admin/         # Admin panel components
-│   │   │   └── shared/        # Reusable UI
-│   │   ├── hooks/             # Custom React hooks
-│   │   ├── stores/            # Zustand state stores
-│   │   ├── utils/             # Helper functions
+│   │   │   ├── viewer/        # Tour viewer (A-Frame)
+│   │   │   └── admin/
+│   │   │       ├── tour-editor/    # Tour editing components
+│   │   │       └── material-editor/ # Material Editor (R3F)
+│   │   ├── contexts/          # React contexts (Auth, Branding)
+│   │   ├── pages/admin/       # Admin pages (Dashboard, Tours, Materials)
+│   │   ├── stores/            # Zustand state (tourStore, materialStore)
+│   │   ├── services/          # API service layer
 │   │   ├── App.jsx
-│   │   ├── App.css
 │   │   └── main.jsx
 │   ├── index.html
 │   ├── package.json
@@ -92,18 +93,23 @@ ozone-virtual-tours/
 │   ├── prisma/
 │   │   └── schema.prisma      # Database schema
 │   ├── src/
-│   │   ├── routes/            # API routes
-│   │   ├── controllers/       # Route handlers
-│   │   ├── middleware/        # Auth, upload, etc.
-│   │   ├── services/          # Business logic
+│   │   ├── routes/            # API routes (tours, library, upload, etc.)
+│   │   ├── middleware/        # Auth, rate limiting, file validation
+│   │   ├── utils/             # Logger and helpers
 │   │   └── index.js           # Entry point
 │   ├── .env.example
 │   └── package.json
+│
+├── docs/                       # Documentation
+│   ├── MVP_ROADMAP.md         # Development roadmap
+│   ├── MATERIAL_EDITOR.md     # Material Editor guide
+│   └── API.md                 # API reference
 │
 ├── shared/                     # Shared types/constants
 │   └── types.js
 │
 ├── QUICKSTART.md              # This file
+├── CHANGELOG.md               # Release notes
 └── README.md                  # Full documentation
 ```
 
@@ -203,10 +209,56 @@ npm install && npm run build
 
 ---
 
+## 🎨 Material Editor
+
+The Material Editor allows you to create and manage PBR (Physically Based Rendering) materials for your 3D scenes.
+
+### Accessing the Material Editor
+
+1. Login to the admin panel at `/admin`
+2. Click **Materials** in the sidebar
+3. Click **New Material** to create a new material
+
+### Material Properties
+
+| Property | Range | Description |
+|----------|-------|-------------|
+| Base Color | Hex | The main color of the material |
+| Metalness | 0-1 | How metallic the surface appears |
+| Roughness | 0-1 | Surface smoothness (0=mirror, 1=matte) |
+| Opacity | 0-1 | Transparency level |
+| Emissive | Hex | Self-illumination color |
+| Emissive Intensity | 0-2 | Brightness of emission |
+
+### Texture Maps
+
+Upload texture maps for advanced materials:
+- **Albedo**: Base color texture
+- **Normal**: Surface detail bumps
+- **Roughness**: Per-pixel roughness variation
+- **Metalness**: Per-pixel metallic variation
+- **AO**: Ambient occlusion shadows
+- **Height**: Displacement mapping
+- **Emissive**: Glowing areas
+
+### 3D Preview
+
+- **Shapes**: Sphere, Cube, Torus, TorusKnot, Plane
+- **Environments**: Studio, Sunset, Warehouse, Forest, Night, City
+- **Controls**: Click and drag to rotate the preview
+
+### Import/Export
+
+- Export your material library as JSON for backup
+- Import materials from other projects
+- Share material libraries with team members
+
+---
+
 ## 📚 Next Steps
 
-1. **Add real panoramas** from your interior design projects
-2. **Build admin panel** for non-technical users
+1. **Create materials** in the Material Editor for your 3D scenes
+2. **Add real panoramas** from your interior design projects
 3. **Connect to Ozone projects** via `projectRef` field
 4. **Add analytics** to track tour engagement
 5. **Implement sharing** with public/private links
