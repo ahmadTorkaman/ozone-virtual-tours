@@ -11,6 +11,7 @@ import AdminLayout from './components/admin/AdminLayout';
 import Dashboard from './pages/admin/Dashboard';
 import Tours from './pages/admin/Tours';
 import TourEditor from './pages/admin/TourEditor';
+import Materials from './pages/admin/Materials';
 import BrandingSettings from './pages/admin/BrandingSettings';
 import TeamSettings from './pages/admin/TeamSettings';
 
@@ -89,6 +90,7 @@ function AppRoutes() {
         <Route path="tours" element={<Tours />} />
         <Route path="tours/new" element={<TourEditor />} />
         <Route path="tours/:id" element={<TourEditor />} />
+        <Route path="materials" element={<Materials />} />
         <Route path="branding" element={<BrandingSettings />} />
         <Route path="team" element={<TeamSettings />} />
       </Route>

@@ -1,0 +1,260 @@
+/* ===========================================
+   Category Manager Styles
+   =========================================== */
+
+.category-manager {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Header */
+.category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.category-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.category-add-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(124, 140, 251, 0.1);
+  border: none;
+  border-radius: 6px;
+  color: var(--color-primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.category-add-btn:hover {
+  background: var(--color-primary);
+  color: white;
+}
+
+/* Category List */
+.category-list {
+  padding: 0.5rem;
+}
+
+/* Category Item Wrapper */
+.category-item-wrapper {
+  position: relative;
+}
+
+.category-item-wrapper:hover .category-actions {
+  opacity: 1;
+}
+
+/* Category Item */
+.category-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.category-item:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.category-item.active {
+  background: rgba(124, 140, 251, 0.15);
+  color: var(--color-primary);
+}
+
+.category-item.active .category-icon {
+  color: var(--color-primary);
+}
+
+.category-icon {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.category-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-count {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.125rem 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  color: var(--color-text-muted);
+}
+
+.category-item.active .category-count {
+  background: rgba(124, 140, 251, 0.2);
+  color: var(--color-primary);
+}
+
+/* Category Actions */
+.category-actions {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.category-action {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.category-action:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.category-action.danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+/* Edit Form */
+.category-edit-form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+
+.category-edit-input {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-primary);
+  border-radius: 6px;
+  color: var(--color-text);
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.category-edit-save,
+.category-edit-cancel {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.category-edit-save {
+  color: #22c55e;
+}
+
+.category-edit-save:hover {
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.category-edit-cancel {
+  color: var(--color-text-muted);
+}
+
+.category-edit-cancel:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* Add Form */
+.category-add-form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.category-add-input {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-primary);
+  border-radius: 6px;
+  color: var(--color-text);
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.category-add-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.category-add-save,
+.category-add-cancel {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.category-add-save {
+  color: #22c55e;
+}
+
+.category-add-save:hover {
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.category-add-cancel {
+  color: var(--color-text-muted);
+}
+
+.category-add-cancel:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}

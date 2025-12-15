@@ -262,6 +262,41 @@ export const settingsApi = {
 };
 
 // ===========================================
+// Material Library API (Ozone Material Editor)
+// ===========================================
+
+export const libraryApi = {
+  // Fetch user's material library
+  fetch: () => request('/library'),
+
+  // Sync entire library to cloud
+  sync: (materials, categories) => request('/library/sync', {
+    method: 'POST',
+    body: JSON.stringify({ materials, categories }),
+  }),
+
+  // Get single material
+  getMaterial: (id) => request(`/library/material/${id}`),
+
+  // Create or update material
+  saveMaterial: (id, data) => request(`/library/material/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+
+  // Delete material
+  deleteMaterial: (id) => request(`/library/material/${id}`, {
+    method: 'DELETE',
+  }),
+
+  // Update categories
+  updateCategories: (categories) => request('/library/categories', {
+    method: 'POST',
+    body: JSON.stringify({ categories }),
+  }),
+};
+
+// ===========================================
 // Upload API
 // ===========================================
 
@@ -321,6 +356,20 @@ export const uploadApi = {
     });
   },
 
+  // Upload material texture (normal, roughness, ao, height, emissive, albedo, metalness, opacity)
+  uploadTexture: async (file, textureType) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (textureType) {
+      formData.append('textureType', textureType);
+    }
+
+    return request('/upload/texture', {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
   // Delete file
   delete: (type, filename) => request(`/upload/${type}/${filename}`, {
     method: 'DELETE',
@@ -334,5 +383,6 @@ export default {
   floorPlans: floorPlansApi,
   hotspots: hotspotsApi,
   settings: settingsApi,
+  library: libraryApi,
   upload: uploadApi,
 };

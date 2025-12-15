@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   Map,
   Palette,
+  Box,
   Users,
   Menu,
   X,
@@ -21,6 +22,7 @@ import './AdminLayout.css';
 const navItems = [
   { path: '/admin', icon: LayoutDashboard, label: 'Dashboard', exact: true },
   { path: '/admin/tours', icon: Map, label: 'Tours' },
+  { path: '/admin/materials', icon: Box, label: 'Materials' },
   { path: '/admin/branding', icon: Palette, label: 'Branding' },
   { path: '/admin/team', icon: Users, label: 'Team' },
 ];

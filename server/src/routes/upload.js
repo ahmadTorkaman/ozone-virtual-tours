@@ -49,7 +49,7 @@ const uploadAudio = multer({
 const UPLOADS_DIR = process.env.UPLOADS_DIR || './uploads';
 const ensureUploadsDir = async () => {
   try {
-    const dirs = ['panoramas', 'thumbnails', 'floorplans', 'audio', 'logos'];
+    const dirs = ['panoramas', 'thumbnails', 'floorplans', 'audio', 'logos', 'textures'];
     for (const dir of dirs) {
       await fs.mkdir(path.join(UPLOADS_DIR, dir), { recursive: true });
     }
@@ -257,13 +257,66 @@ router.post('/logo', requireAuth, uploadImage.single('file'), validateFileType('
 });
 
 // ===========================================
+// POST /api/upload/texture - Upload material texture (normal, roughness, etc.)
+// ===========================================
+router.post('/texture', requireAuth, uploadImage.single('file'), validateFileType('image'), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: { message: 'No file uploaded' } });
+    }
+
+    const { textureType } = req.body; // 'normal', 'roughness', 'ao', 'height', 'emissive', 'albedo'
+    const validTextureTypes = ['normal', 'roughness', 'ao', 'height', 'emissive', 'albedo', 'metalness', 'opacity'];
+
+    if (textureType && !validTextureTypes.includes(textureType)) {
+      return res.status(400).json({ error: { message: 'Invalid texture type' } });
+    }
+
+    const fileId = uuidv4();
+    const typePrefix = textureType ? `${textureType}_` : '';
+    const filename = `${typePrefix}${fileId}.png`;
+
+    // Process texture - keep as PNG for quality, resize if too large
+    const texturePath = path.join(UPLOADS_DIR, 'textures', filename);
+
+    const metadata = await sharp(req.file.buffer).metadata();
+
+    // Resize if larger than 2048x2048 (common max texture size)
+    let processor = sharp(req.file.buffer);
+    if (metadata.width > 2048 || metadata.height > 2048) {
+      processor = processor.resize(2048, 2048, { fit: 'inside', withoutEnlargement: true });
+    }
+
+    await processor.png({ quality: 95 }).toFile(texturePath);
+
+    const finalMetadata = await sharp(texturePath).metadata();
+
+    res.json({
+      success: true,
+      url: `/uploads/textures/${filename}`,
+      textureUrl: `/uploads/textures/${filename}`,
+      textureType: textureType || 'generic',
+      metadata: {
+        width: finalMetadata.width,
+        height: finalMetadata.height,
+        originalWidth: metadata.width,
+        originalHeight: metadata.height,
+        size: req.file.size
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ===========================================
 // DELETE /api/upload/:type/:filename - Delete uploaded file
 // ===========================================
 router.delete('/:type/:filename', requireAuth, async (req, res, next) => {
   try {
     const { type, filename } = req.params;
 
-    const validTypes = ['panoramas', 'thumbnails', 'floorplans', 'audio', 'logos'];
+    const validTypes = ['panoramas', 'thumbnails', 'floorplans', 'audio', 'logos', 'textures'];
     if (!validTypes.includes(type)) {
       return res.status(400).json({ error: { message: 'Invalid file type' } });
     }
