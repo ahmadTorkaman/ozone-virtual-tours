@@ -74,13 +74,16 @@ app.use('/uploads', express.static(uploadsPath));
 // Health Check
 // ===========================================
 
-app.get('/health', (req, res) => {
+const healthResponse = (req, res) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    version: '0.2.0'
+    version: '0.7.0'
   });
-});
+};
+
+app.get('/health', healthResponse);
+app.get('/api/health', healthResponse);
 
 // ===========================================
 // API Routes
