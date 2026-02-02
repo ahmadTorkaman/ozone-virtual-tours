@@ -1,20 +1,20 @@
 # Phase 3: Scene Viewer
 
-> **Estimated Scope**: Core 3D viewer with GLB loading and navigation
-> **Prerequisites**: Phase 2 complete (backend API ready)
+> **Scope**: Core 3D viewer with local GLB loading and navigation
+> **Prerequisites**: Phase 2 complete (database & file storage ready)
 > **Outputs**: Functional 3D scene viewer with first-person controls
 
 ---
 
 ## Overview
 
-This phase builds the core 3D viewing experience:
+This phase builds the core 3D viewing experience for the Tauri desktop app:
 
 1. React Three Fiber (R3F) setup and configuration
-2. GLB loading with progress indication
+2. GLB loading from local filesystem via Tauri
 3. First-person camera controls (WASD + mouse)
 4. Object selection via ray-casting
-5. Scene state management
+5. Scene state management with Zustand
 6. Basic UI overlay (loading, controls help)
 
 ---
@@ -23,10 +23,11 @@ This phase builds the core 3D viewing experience:
 
 If you're starting a new Claude session to work on this phase:
 
-- **Project**: Ozone Studio - 3D scene viewer for interior designers
-- **Current State**: Phase 2 complete (backend with auth and file upload)
+- **Project**: Ozone Studio - 3D scene viewer (Tauri desktop app)
+- **Current State**: Phase 2 complete (SQLite database, file storage)
 - **Working Directory**: `C:/Users/Lion/ozone-virtual-tours`
 - **Focus**: Building the 3D viewer with React Three Fiber
+- **Key Difference from Web**: Files load from local filesystem, not URLs
 
 Read `/docs/ARCHITECTURE.md` for full context.
 
@@ -44,7 +45,53 @@ pnpm add -D @types/three
 
 ## Task Checklist
 
-### 3.1 Create Three.js Engine Core
+### 3.1 Tauri File URL Conversion
+
+Create `client/src/lib/tauri-file.ts`:
+
+```typescript
+import { convertFileSrc } from '@tauri-apps/api/core';
+
+/**
+ * Convert a local file path to a URL that can be used in the WebView.
+ * Tauri uses the `asset://` protocol to serve local files securely.
+ */
+export function getAssetUrl(filePath: string): string {
+  // convertFileSrc handles the platform-specific path conversion
+  return convertFileSrc(filePath);
+}
+
+/**
+ * Get the full path to a file in the app's data directory.
+ * Combines with the base data path from settings.
+ */
+export function getProjectFilePath(
+  dataPath: string,
+  projectId: string,
+  fileName: string
+): string {
+  // Windows uses backslashes, but we normalize to forward slashes
+  return `${dataPath}/projects/${projectId}/${fileName}`.replace(/\\/g, '/');
+}
+
+/**
+ * Get asset URL for a scene's GLB file.
+ */
+export function getSceneGlbUrl(dataPath: string, projectId: string, glbFileName: string): string {
+  const filePath = getProjectFilePath(dataPath, projectId, glbFileName);
+  return getAssetUrl(filePath);
+}
+
+/**
+ * Get asset URL for a texture file.
+ */
+export function getTextureUrl(dataPath: string, projectId: string, texturePath: string): string {
+  const filePath = getProjectFilePath(dataPath, projectId, texturePath);
+  return getAssetUrl(filePath);
+}
+```
+
+### 3.2 Create Three.js Engine Core
 
 Create `client/src/engine/SceneManager.ts`:
 
@@ -72,14 +119,21 @@ let dracoLoader: DRACOLoader | null = null;
 function getDracoLoader(): DRACOLoader {
   if (!dracoLoader) {
     dracoLoader = new DRACOLoader();
-    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
-    dracoLoader.setDecoderConfig({ type: 'js' }); // Use JS decoder for broader compatibility
+    // DRACO decoder files bundled with the app
+    // These should be copied to public/draco/ during build
+    dracoLoader.setDecoderPath('/draco/');
+    dracoLoader.setDecoderConfig({ type: 'js' });
   }
   return dracoLoader;
 }
 
+/**
+ * Load a GLB file from a local asset URL (converted via Tauri's convertFileSrc).
+ * @param assetUrl - The asset:// URL from getAssetUrl()
+ * @param onProgress - Optional progress callback
+ */
 export async function loadGLB(
-  url: string,
+  assetUrl: string,
   onProgress?: (progress: LoadProgress) => void
 ): Promise<SceneData> {
   const loader = new GLTFLoader();
@@ -87,7 +141,7 @@ export async function loadGLB(
 
   return new Promise((resolve, reject) => {
     loader.load(
-      url,
+      assetUrl,
       (gltf: GLTF) => {
         const meshes = new Map<string, THREE.Mesh>();
         const materials = new Map<string, THREE.Material>();
@@ -151,12 +205,28 @@ export function disposeScene(sceneData: SceneData): void {
   sceneData.meshes.clear();
   sceneData.materials.clear();
 }
+
+/**
+ * Get a list of all mesh names in the scene.
+ * Useful for building the object hierarchy panel.
+ */
+export function getMeshList(sceneData: SceneData): string[] {
+  return Array.from(sceneData.meshes.keys());
+}
+
+/**
+ * Find a mesh by name in the scene data.
+ */
+export function getMeshByName(sceneData: SceneData, name: string): THREE.Mesh | undefined {
+  return sceneData.meshes.get(name);
+}
 ```
 
 Create `client/src/engine/MaterialSystem.ts`:
 
 ```typescript
 import * as THREE from 'three';
+import { getAssetUrl } from '@/lib/tauri-file';
 
 export interface PhysicalMaterialParams {
   color?: string;
@@ -187,31 +257,37 @@ export interface PhysicalMaterialParams {
   anisotropy?: number;
   anisotropyRotation?: number;
 
-  // Texture URLs
-  mapUrl?: string;
-  normalMapUrl?: string;
-  roughnessMapUrl?: string;
-  metalnessMapUrl?: string;
-  aoMapUrl?: string;
-  emissiveMapUrl?: string;
+  // Texture file paths (local paths, will be converted to asset URLs)
+  mapPath?: string;
+  normalMapPath?: string;
+  roughnessMapPath?: string;
+  metalnessMapPath?: string;
+  aoMapPath?: string;
+  emissiveMapPath?: string;
 }
 
 const textureLoader = new THREE.TextureLoader();
 const textureCache = new Map<string, THREE.Texture>();
 
-async function loadTexture(url: string): Promise<THREE.Texture> {
-  if (textureCache.has(url)) {
-    return textureCache.get(url)!;
+/**
+ * Load a texture from a local file path.
+ * @param filePath - Local file path (will be converted to asset:// URL)
+ */
+async function loadTexture(filePath: string): Promise<THREE.Texture> {
+  const assetUrl = getAssetUrl(filePath);
+
+  if (textureCache.has(assetUrl)) {
+    return textureCache.get(assetUrl)!;
   }
 
   return new Promise((resolve, reject) => {
     textureLoader.load(
-      url,
+      assetUrl,
       (texture) => {
         texture.colorSpace = THREE.SRGBColorSpace;
         texture.wrapS = THREE.RepeatWrapping;
         texture.wrapT = THREE.RepeatWrapping;
-        textureCache.set(url, texture);
+        textureCache.set(assetUrl, texture);
         resolve(texture);
       },
       undefined,
@@ -251,53 +327,53 @@ export async function createPhysicalMaterial(
   // Load textures in parallel
   const texturePromises: Promise<void>[] = [];
 
-  if (params.mapUrl) {
+  if (params.mapPath) {
     texturePromises.push(
-      loadTexture(params.mapUrl).then((t) => {
+      loadTexture(params.mapPath).then((t) => {
         material.map = t;
       })
     );
   }
 
-  if (params.normalMapUrl) {
+  if (params.normalMapPath) {
     texturePromises.push(
-      loadTexture(params.normalMapUrl).then((t) => {
+      loadTexture(params.normalMapPath).then((t) => {
         t.colorSpace = THREE.NoColorSpace;
         material.normalMap = t;
       })
     );
   }
 
-  if (params.roughnessMapUrl) {
+  if (params.roughnessMapPath) {
     texturePromises.push(
-      loadTexture(params.roughnessMapUrl).then((t) => {
+      loadTexture(params.roughnessMapPath).then((t) => {
         t.colorSpace = THREE.NoColorSpace;
         material.roughnessMap = t;
       })
     );
   }
 
-  if (params.metalnessMapUrl) {
+  if (params.metalnessMapPath) {
     texturePromises.push(
-      loadTexture(params.metalnessMapUrl).then((t) => {
+      loadTexture(params.metalnessMapPath).then((t) => {
         t.colorSpace = THREE.NoColorSpace;
         material.metalnessMap = t;
       })
     );
   }
 
-  if (params.aoMapUrl) {
+  if (params.aoMapPath) {
     texturePromises.push(
-      loadTexture(params.aoMapUrl).then((t) => {
+      loadTexture(params.aoMapPath).then((t) => {
         t.colorSpace = THREE.NoColorSpace;
         material.aoMap = t;
       })
     );
   }
 
-  if (params.emissiveMapUrl) {
+  if (params.emissiveMapPath) {
     texturePromises.push(
-      loadTexture(params.emissiveMapUrl).then((t) => {
+      loadTexture(params.emissiveMapPath).then((t) => {
         material.emissiveMap = t;
         material.emissive = new THREE.Color(0xffffff);
       })
@@ -549,7 +625,7 @@ export class FirstPersonControls {
 }
 ```
 
-### 3.2 Create Zustand Store for Scene State
+### 3.3 Create Zustand Store for Scene State
 
 Create `client/src/stores/sceneStore.ts`:
 
@@ -559,6 +635,10 @@ import { devtools } from 'zustand/middleware';
 import type { SceneData } from '@/engine/SceneManager';
 
 interface SceneState {
+  // Current project/scene info
+  currentProjectId: string | null;
+  currentSceneId: string | null;
+
   // Scene data
   sceneData: SceneData | null;
   isLoading: boolean;
@@ -576,6 +656,8 @@ interface SceneState {
   materialMappings: Record<string, string>;
 
   // Actions
+  setCurrentProject: (projectId: string | null) => void;
+  setCurrentScene: (sceneId: string | null) => void;
   setSceneData: (data: SceneData | null) => void;
   setLoading: (loading: boolean) => void;
   setLoadProgress: (progress: number) => void;
@@ -584,12 +666,15 @@ interface SceneState {
   setHoveredObject: (name: string | null) => void;
   setPointerLocked: (locked: boolean) => void;
   setMaterialMapping: (objectName: string, materialId: string) => void;
+  setMaterialMappings: (mappings: Record<string, string>) => void;
   removeMaterialMapping: (objectName: string) => void;
   clearMaterialMappings: () => void;
   reset: () => void;
 }
 
 const initialState = {
+  currentProjectId: null,
+  currentSceneId: null,
   sceneData: null,
   isLoading: false,
   loadProgress: 0,
@@ -604,6 +689,10 @@ export const useSceneStore = create<SceneState>()(
   devtools(
     (set) => ({
       ...initialState,
+
+      setCurrentProject: (projectId) => set({ currentProjectId: projectId }),
+
+      setCurrentScene: (sceneId) => set({ currentSceneId: sceneId }),
 
       setSceneData: (data) => set({ sceneData: data, error: null }),
 
@@ -627,6 +716,8 @@ export const useSceneStore = create<SceneState>()(
           },
         })),
 
+      setMaterialMappings: (mappings) => set({ materialMappings: mappings }),
+
       removeMaterialMapping: (objectName) =>
         set((state) => {
           const { [objectName]: _, ...rest } = state.materialMappings;
@@ -642,7 +733,7 @@ export const useSceneStore = create<SceneState>()(
 );
 ```
 
-### 3.3 Create React Three Fiber Components
+### 3.4 Create React Three Fiber Components
 
 Create `client/src/features/scene-viewer/SceneViewer.tsx`:
 
@@ -659,6 +750,7 @@ import { ControlsHelp } from './ControlsHelp';
 import { SelectionOutline } from './SelectionOutline';
 
 interface SceneViewerProps {
+  /** Asset URL from getAssetUrl() - already converted from file path */
   sceneUrl: string;
   spawnPosition?: { x: number; y: number; z: number };
   spawnRotation?: { x: number; y: number; z: number };
@@ -1035,6 +1127,68 @@ export function SelectionOutline() {
 }
 ```
 
+Create `client/src/features/scene-viewer/ObjectHierarchy.tsx`:
+
+```tsx
+import { useMemo } from 'react';
+import { useSceneStore } from '@/stores/sceneStore';
+
+interface ObjectHierarchyProps {
+  onSelectObject?: (name: string) => void;
+}
+
+export function ObjectHierarchy({ onSelectObject }: ObjectHierarchyProps) {
+  const { sceneData, selectedObjectName, setSelectedObject } = useSceneStore();
+
+  const objectList = useMemo(() => {
+    if (!sceneData) return [];
+    return Array.from(sceneData.meshes.keys()).sort();
+  }, [sceneData]);
+
+  const handleSelect = (name: string) => {
+    setSelectedObject(name);
+    onSelectObject?.(name);
+  };
+
+  if (!sceneData) {
+    return (
+      <div className="p-4 text-gray-400 text-sm">
+        No scene loaded
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="p-3 border-b border-gray-700">
+        <h3 className="text-sm font-medium text-white">
+          Objects ({objectList.length})
+        </h3>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-2">
+        <div className="space-y-1">
+          {objectList.map((name) => (
+            <button
+              key={name}
+              className={`w-full text-left px-3 py-2 rounded text-sm truncate ${
+                selectedObjectName === name
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }`}
+              onClick={() => handleSelect(name)}
+              title={name}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
 Create `client/src/features/scene-viewer/index.ts`:
 
 ```typescript
@@ -1042,146 +1196,180 @@ export { SceneViewer } from './SceneViewer';
 export { LoadingOverlay } from './LoadingOverlay';
 export { ControlsHelp } from './ControlsHelp';
 export { SelectionOutline } from './SelectionOutline';
+export { ObjectHierarchy } from './ObjectHierarchy';
 ```
 
-### 3.4 Create Test Page
+### 3.5 Create Scene Editor Page
 
-Create `client/src/pages/ViewerTest.tsx`:
+Create `client/src/pages/SceneEditor.tsx`:
 
 ```tsx
-import { useState } from 'react';
-import { SceneViewer } from '@/features/scene-viewer';
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { SceneViewer, ObjectHierarchy } from '@/features/scene-viewer';
 import { useSceneStore } from '@/stores/sceneStore';
+import { getSceneGlbUrl } from '@/lib/tauri-file';
+import { invoke } from '@tauri-apps/api/core';
 
-// Test with a sample GLB (replace with your test URL)
-const TEST_SCENE_URL = '/uploads/glb/test-scene.glb';
+interface Scene {
+  id: string;
+  name: string;
+  glb_path: string;
+  spawn_position: { x: number; y: number; z: number } | null;
+  spawn_rotation: { x: number; y: number; z: number } | null;
+}
 
-export function ViewerTest() {
-  const { selectedObjectName, sceneData } = useSceneStore();
+interface Project {
+  id: string;
+  name: string;
+}
+
+export function SceneEditor() {
+  const { projectId, sceneId } = useParams<{ projectId: string; sceneId: string }>();
+  const navigate = useNavigate();
+
+  const [scene, setScene] = useState<Scene | null>(null);
+  const [project, setProject] = useState<Project | null>(null);
+  const [dataPath, setDataPath] = useState<string>('');
   const [showSidebar, setShowSidebar] = useState(true);
 
-  const handleObjectSelect = (name: string | null) => {
-    console.log('Selected:', name);
-    setShowSidebar(true);
-  };
+  const { selectedObjectName, setCurrentProject, setCurrentScene } = useSceneStore();
+
+  // Load scene data
+  useEffect(() => {
+    async function loadData() {
+      if (!projectId || !sceneId) return;
+
+      try {
+        // Get data path from settings
+        const settings = await invoke<{ data_path: string }>('get_settings');
+        setDataPath(settings.data_path);
+
+        // Load project and scene
+        const [projectData, sceneData] = await Promise.all([
+          invoke<Project>('get_project', { id: projectId }),
+          invoke<Scene>('get_scene', { id: sceneId }),
+        ]);
+
+        setProject(projectData);
+        setScene(sceneData);
+        setCurrentProject(projectId);
+        setCurrentScene(sceneId);
+      } catch (error) {
+        console.error('Failed to load scene:', error);
+      }
+    }
+
+    loadData();
+
+    return () => {
+      setCurrentProject(null);
+      setCurrentScene(null);
+    };
+  }, [projectId, sceneId, setCurrentProject, setCurrentScene]);
+
+  if (!scene || !project || !dataPath) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-900 text-white">
+        Loading...
+      </div>
+    );
+  }
+
+  const sceneUrl = getSceneGlbUrl(dataPath, projectId!, scene.glb_path);
 
   return (
-    <div className="h-screen flex">
-      {/* Scene viewer */}
-      <div className="flex-1 relative">
-        <SceneViewer
-          sceneUrl={TEST_SCENE_URL}
-          spawnPosition={{ x: 0, y: 0, z: 5 }}
-          onObjectSelect={handleObjectSelect}
-        />
-      </div>
-
-      {/* Sidebar */}
-      {showSidebar && (
-        <div className="w-80 bg-gray-800 border-l border-gray-700 p-4 overflow-y-auto">
-          <h2 className="text-lg font-semibold text-white mb-4">Scene Objects</h2>
-
-          {/* Selected object info */}
-          {selectedObjectName ? (
-            <div className="bg-gray-700 rounded-lg p-4 mb-4">
-              <p className="text-sm text-gray-400">Selected</p>
-              <p className="text-white font-medium">{selectedObjectName}</p>
-            </div>
-          ) : (
-            <p className="text-gray-400 text-sm mb-4">
-              Click on an object in the scene to select it
-            </p>
-          )}
-
-          {/* Object list */}
-          {sceneData && (
-            <div>
-              <p className="text-sm text-gray-400 mb-2">
-                {sceneData.meshes.size} objects in scene
-              </p>
-              <div className="space-y-1 max-h-96 overflow-y-auto">
-                {Array.from(sceneData.meshes.keys()).map((name) => (
-                  <button
-                    key={name}
-                    className={`w-full text-left px-3 py-2 rounded text-sm ${
-                      selectedObjectName === name
-                        ? 'bg-primary-600 text-white'
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    }`}
-                    onClick={() =>
-                      useSceneStore.getState().setSelectedObject(name)
-                    }
-                  >
-                    {name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+    <div className="h-screen flex flex-col bg-gray-900">
+      {/* Header */}
+      <header className="h-12 bg-gray-800 border-b border-gray-700 flex items-center px-4 justify-between">
+        <div className="flex items-center gap-4">
+          <button
+            className="text-gray-400 hover:text-white"
+            onClick={() => navigate(`/projects/${projectId}`)}
+          >
+            &larr; Back
+          </button>
+          <h1 className="text-white font-medium">
+            {project.name} / {scene.name}
+          </h1>
         </div>
-      )}
 
-      {/* Toggle sidebar */}
-      <button
-        className="absolute top-4 right-4 bg-gray-800 text-white px-3 py-2 rounded"
-        onClick={() => setShowSidebar(!showSidebar)}
-      >
-        {showSidebar ? 'Hide' : 'Show'} Sidebar
-      </button>
-    </div>
-  );
-}
-```
-
-### 3.5 Update App Router
-
-Update `client/src/App.tsx`:
-
-```tsx
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { ViewerTest } from '@/pages/ViewerTest';
-
-function Home() {
-  return (
-    <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Ozone Studio</h1>
-        <p className="text-gray-400 mb-8">3D Scene Viewer for Interior Designers</p>
-        <a
-          href="/viewer-test"
-          className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-lg"
+        <button
+          className="text-gray-400 hover:text-white text-sm"
+          onClick={() => setShowSidebar(!showSidebar)}
         >
-          Open Test Viewer
-        </a>
+          {showSidebar ? 'Hide' : 'Show'} Sidebar
+        </button>
+      </header>
+
+      {/* Main content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Scene viewer */}
+        <div className="flex-1 relative">
+          <SceneViewer
+            sceneUrl={sceneUrl}
+            spawnPosition={scene.spawn_position ?? { x: 0, y: 0, z: 5 }}
+            spawnRotation={scene.spawn_rotation ?? { x: 0, y: 0, z: 0 }}
+          />
+        </div>
+
+        {/* Sidebar */}
+        {showSidebar && (
+          <aside className="w-72 bg-gray-800 border-l border-gray-700 flex flex-col">
+            {/* Selected object info */}
+            {selectedObjectName && (
+              <div className="p-4 border-b border-gray-700">
+                <p className="text-xs text-gray-400 mb-1">Selected</p>
+                <p className="text-white font-medium truncate" title={selectedObjectName}>
+                  {selectedObjectName}
+                </p>
+              </div>
+            )}
+
+            {/* Object hierarchy */}
+            <div className="flex-1 overflow-hidden">
+              <ObjectHierarchy />
+            </div>
+          </aside>
+        )}
       </div>
     </div>
   );
 }
-
-export default function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/viewer-test" element={<ViewerTest />} />
-        {/* More routes will be added in later phases */}
-      </Routes>
-    </BrowserRouter>
-  );
-}
 ```
 
----
+### 3.6 DRACO Decoder Setup
 
-## TypeScript Configuration Update
+Copy DRACO decoder files to the client public folder:
 
-Update `client/tsconfig.json` to handle Three.js:
+```bash
+# Create draco directory
+mkdir -p client/public/draco
+
+# Download DRACO decoders (or copy from node_modules)
+# Option 1: Copy from three.js examples
+cp node_modules/three/examples/jsm/libs/draco/draco_decoder.js client/public/draco/
+cp node_modules/three/examples/jsm/libs/draco/draco_decoder.wasm client/public/draco/
+cp node_modules/three/examples/jsm/libs/draco/draco_wasm_wrapper.js client/public/draco/
+
+# Option 2: Download from CDN and save locally
+curl -o client/public/draco/draco_decoder.js https://www.gstatic.com/draco/versioned/decoders/1.5.6/draco_decoder.js
+curl -o client/public/draco/draco_decoder.wasm https://www.gstatic.com/draco/versioned/decoders/1.5.6/draco_decoder.wasm
+curl -o client/public/draco/draco_wasm_wrapper.js https://www.gstatic.com/draco/versioned/decoders/1.5.6/draco_wasm_wrapper.js
+```
+
+### 3.7 Tauri Configuration for Assets
+
+Update `src-tauri/tauri.conf.json` to allow asset protocol:
 
 ```json
 {
-  "compilerOptions": {
-    // ... existing options ...
-    "types": ["vite/client"]
+  "security": {
+    "csp": "default-src 'self'; img-src 'self' asset: data:; script-src 'self'; style-src 'self' 'unsafe-inline'",
+    "assetProtocol": {
+      "enable": true,
+      "scope": ["$DOCUMENT/*", "$APPDATA/*"]
+    }
   }
 }
 ```
@@ -1190,9 +1378,9 @@ Update `client/tsconfig.json` to handle Three.js:
 
 ## Testing the Viewer
 
-1. Place a test GLB file at `uploads/glb/test-scene.glb` (or update URL)
-2. Run `pnpm dev`
-3. Navigate to `http://localhost:5173/viewer-test`
+1. Create a test project in the database with a GLB file
+2. Run `pnpm tauri dev`
+3. Navigate to `/projects/{projectId}/scenes/{sceneId}`
 4. Click to enter pointer lock mode
 5. Use WASD to move, mouse to look
 6. Click objects to select them
@@ -1203,13 +1391,15 @@ Update `client/tsconfig.json` to handle Three.js:
 
 After completing Phase 3, verify:
 
-- [ ] Scene loads with progress indicator
+- [ ] Scene loads from local filesystem via asset:// protocol
+- [ ] Progress indicator shows during load
 - [ ] First-person controls work (WASD + mouse)
 - [ ] Pointer lock activates on click
 - [ ] ESC exits pointer lock
 - [ ] Objects can be clicked to select
-- [ ] Selected object shows outline
-- [ ] Sidebar lists all scene objects
+- [ ] Selected object shows green outline
+- [ ] Object hierarchy panel lists all meshes
+- [ ] Selecting from panel highlights object
 - [ ] No console errors during interaction
 
 ---
@@ -1218,17 +1408,22 @@ After completing Phase 3, verify:
 
 For large scenes (500MB+ GLB files):
 
-1. **DRACO compression** is enabled by default
-2. Consider **LOD generation** for very detailed models
-3. Implement **frustum culling** (Three.js does this automatically)
-4. Add **occlusion culling** for interior scenes (future optimization)
+1. **DRACO compression** - Enabled by default, decoders bundled locally
+2. **Frustum culling** - Three.js handles this automatically
+3. **Memory management** - Scenes properly disposed on unmount
+4. **Texture caching** - Textures cached to avoid reloading
+
+Future optimizations (later phases):
+- LOD generation for detailed models
+- Occlusion culling for interior scenes
+- Progressive loading for very large files
 
 ---
 
 ## Next Phase
 
 After Phase 3 is complete, proceed to **Phase 4: Material System** which covers:
-- Material library UI
-- Material editor (create/edit)
+- Material library UI (local SQLite)
+- Material editor with full PBR controls
 - Applying materials to selected objects
 - Saving material mappings to database

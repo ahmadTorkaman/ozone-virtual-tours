@@ -1,14 +1,14 @@
-# Phase 5: VR Mode
+# Phase 5: VR Mode (WebXR)
 
-> **Estimated Scope**: WebXR integration with VR controls and UI
+> **Scope**: WebXR integration with VR controls and UI
 > **Prerequisites**: Phase 4 complete (material system working)
-> **Outputs**: Full VR experience with locomotion and interaction
+> **Outputs**: Immersive VR experience via WebXR in Tauri WebView
 
 ---
 
 ## Overview
 
-This phase adds immersive VR support:
+This phase adds immersive VR support using WebXR in the Tauri WebView:
 
 1. WebXR session management (enter/exit VR)
 2. VR locomotion (teleport and smooth movement)
@@ -16,16 +16,29 @@ This phase adds immersive VR support:
 4. VR UI panels (floating menus for materials)
 5. Comfort options (vignette, snap turning)
 
+### Hybrid VR Strategy
+
+**v1.0 (This Phase)**: WebXR in Tauri WebView
+- Works with most VR headsets via browser WebXR
+- Simpler implementation, faster to market
+- Performance limited by WebView
+
+**v2.0 (Future)**: Native OpenXR via Rust
+- Direct OpenXR integration in Rust backend
+- Optimal performance, full feature access
+- Requires significant additional development
+
 ---
 
 ## Context for New Sessions
 
 If you're starting a new Claude session to work on this phase:
 
-- **Project**: Ozone Studio - 3D scene viewer for interior designers
+- **Project**: Ozone Studio - 3D scene viewer (Tauri desktop app)
 - **Current State**: Phase 4 complete (scene viewer + material system)
 - **Working Directory**: `C:/Users/Lion/ozone-virtual-tours`
-- **Focus**: Adding WebXR VR support
+- **Focus**: Adding WebXR VR support in WebView
+- **VR Approach**: WebXR for v1.0, native OpenXR planned for v2.0
 
 VR is a **critical feature** for this application. Interior designers use VR headsets to present designs to clients.
 
@@ -210,8 +223,6 @@ export class VRControls {
       const controller = this.renderer.xr.getController(i);
       controller.addEventListener('selectstart', this.onControllerSelectStart);
       controller.addEventListener('selectend', this.onControllerSelectEnd);
-      controller.addEventListener('squeezestart', this.onControllerSqueezeStart);
-      controller.addEventListener('squeezeend', this.onControllerSqueezeEnd);
       this.cameraGroup.add(controller);
       this.controllers.push(controller);
 
@@ -262,10 +273,9 @@ export class VRControls {
     const controller = event.target as THREE.XRTargetRaySpace;
 
     if (this.config.locomotionMode === 'teleport') {
-      this.startTeleportAim(controller);
+      this.startTeleportAim();
     }
 
-    // Check for object intersection
     const intersection = this.getControllerIntersection(controller);
     this.onSelectStart?.(controller, intersection);
   };
@@ -280,28 +290,19 @@ export class VRControls {
     this.onSelectEnd?.(controller);
   };
 
-  private onControllerSqueezeStart = (_event: THREE.Event): void => {
-    // Grip button - could be used for grabbing objects
-  };
-
-  private onControllerSqueezeEnd = (_event: THREE.Event): void => {
-    // Release grip
-  };
-
-  private startTeleportAim(controller: THREE.XRTargetRaySpace): void {
+  private startTeleportAim(): void {
     this.teleportMarker!.visible = true;
     this.teleportLine!.visible = true;
   }
 
   private updateTeleportAim(controller: THREE.XRTargetRaySpace): void {
-    // Cast ray down from controller
     const tempMatrix = new THREE.Matrix4();
     tempMatrix.identity().extractRotation(controller.matrixWorld);
 
     this.raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
     this.raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
 
-    // Find floor intersection (simplified - assumes Y=0 is floor)
+    // Find floor intersection (Y=0 is floor)
     const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     const intersection = new THREE.Vector3();
 
@@ -311,19 +312,16 @@ export class VRControls {
       if (distance <= this.config.teleportDistance) {
         this.teleportTarget = intersection;
         this.teleportMarker!.position.copy(intersection);
-        this.teleportMarker!.position.y = 0.01; // Slightly above floor
+        this.teleportMarker!.position.y = 0.01;
 
-        // Update line
         const points = [
           this.raycaster.ray.origin.clone(),
           intersection.clone(),
         ];
         this.teleportLine!.geometry.setFromPoints(points);
 
-        // Green = valid
         (this.teleportMarker!.material as THREE.MeshBasicMaterial).color.setHex(0x00ff00);
       } else {
-        // Red = too far
         (this.teleportMarker!.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
         this.teleportTarget = null;
       }
@@ -332,10 +330,9 @@ export class VRControls {
 
   private executeTeleport(): void {
     if (this.teleportTarget) {
-      // Move camera group to teleport target
       const offset = new THREE.Vector3();
       offset.copy(this.camera.position);
-      offset.y = 0; // Only XZ offset
+      offset.y = 0;
 
       this.cameraGroup.position.copy(this.teleportTarget).sub(offset);
     }
@@ -357,9 +354,7 @@ export class VRControls {
   }
 
   update(): void {
-    // Update teleport aim if active
     if (this.teleportMarker?.visible) {
-      // Use right controller (index 1) for teleport
       const controller = this.controllers[1];
       if (controller) {
         this.updateTeleportAim(controller);
@@ -373,13 +368,12 @@ export class VRControls {
         for (const source of session.inputSources) {
           if (source.gamepad) {
             const axes = source.gamepad.axes;
-            // Left stick for movement
             if (source.handedness === 'left' && axes.length >= 4) {
               const moveX = axes[2];
               const moveZ = axes[3];
 
               if (Math.abs(moveX) > 0.1 || Math.abs(moveZ) > 0.1) {
-                const speed = this.config.smoothSpeed * 0.016; // Assuming 60fps
+                const speed = this.config.smoothSpeed * 0.016;
                 const direction = new THREE.Vector3(moveX, 0, moveZ);
                 direction.applyQuaternion(this.camera.quaternion);
                 direction.y = 0;
@@ -389,12 +383,10 @@ export class VRControls {
               }
             }
 
-            // Right stick for turning
             if (source.handedness === 'right' && axes.length >= 4) {
               const turnX = axes[2];
 
               if (Math.abs(turnX) > 0.5) {
-                // Snap turn
                 const turnAngle = Math.sign(turnX) * THREE.MathUtils.degToRad(this.config.snapTurnAngle);
                 this.cameraGroup.rotateY(-turnAngle);
               }
@@ -449,7 +441,7 @@ Create `client/src/stores/vrStore.ts`:
 
 ```typescript
 import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
+import { devtools, persist } from 'zustand/middleware';
 import type { LocomotionMode } from '@/engine/vr/VRControls';
 
 interface VRState {
@@ -458,7 +450,7 @@ interface VRState {
   isInVR: boolean;
   isEntering: boolean;
 
-  // Settings
+  // Settings (persisted)
   locomotionMode: LocomotionMode;
   smoothSpeed: number;
   snapTurnAngle: number;
@@ -476,74 +468,80 @@ interface VRState {
 
 export const useVRStore = create<VRState>()(
   devtools(
-    (set) => ({
-      // Initial state
-      isSupported: false,
-      isInVR: false,
-      isEntering: false,
-      locomotionMode: 'teleport',
-      smoothSpeed: 3,
-      snapTurnAngle: 45,
-      vignetteEnabled: true,
+    persist(
+      (set) => ({
+        // Initial state
+        isSupported: false,
+        isInVR: false,
+        isEntering: false,
+        locomotionMode: 'teleport',
+        smoothSpeed: 3,
+        snapTurnAngle: 45,
+        vignetteEnabled: true,
 
-      // Actions
-      setSupported: (supported) => set({ isSupported: supported }),
-      setInVR: (inVR) => set({ isInVR: inVR }),
-      setEntering: (entering) => set({ isEntering: entering }),
-      setLocomotionMode: (mode) => set({ locomotionMode: mode }),
-      setSmoothSpeed: (speed) => set({ smoothSpeed: speed }),
-      setSnapTurnAngle: (angle) => set({ snapTurnAngle: angle }),
-      setVignetteEnabled: (enabled) => set({ vignetteEnabled: enabled }),
-    }),
+        // Actions
+        setSupported: (supported) => set({ isSupported: supported }),
+        setInVR: (inVR) => set({ isInVR: inVR }),
+        setEntering: (entering) => set({ isEntering: entering }),
+        setLocomotionMode: (mode) => set({ locomotionMode: mode }),
+        setSmoothSpeed: (speed) => set({ smoothSpeed: speed }),
+        setSnapTurnAngle: (angle) => set({ snapTurnAngle: angle }),
+        setVignetteEnabled: (enabled) => set({ vignetteEnabled: enabled }),
+      }),
+      {
+        name: 'vr-settings',
+        partialize: (state) => ({
+          locomotionMode: state.locomotionMode,
+          smoothSpeed: state.smoothSpeed,
+          snapTurnAngle: state.snapTurnAngle,
+          vignetteEnabled: state.vignetteEnabled,
+        }),
+      }
+    ),
     { name: 'vr-store' }
   )
 );
 ```
 
-### 5.4 Create VR Button Component
+### 5.4 Create VR Components
 
-Create `client/src/features/scene-viewer/VRButton.tsx`:
+Create `client/src/features/vr/VRButton.tsx`:
 
 ```tsx
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useThree } from '@react-three/fiber';
 import { Headset } from 'lucide-react';
 import { useVRStore } from '@/stores/vrStore';
 import { VRSessionManager } from '@/engine/vr/VRSession';
 
-let vrManager: VRSessionManager | null = null;
-
 export function VRButton() {
   const { gl } = useThree();
+  const vrManagerRef = useRef<VRSessionManager | null>(null);
   const { isSupported, isInVR, isEntering, setSupported, setInVR, setEntering } = useVRStore();
 
-  // Check VR support on mount
   useEffect(() => {
-    if (!vrManager) {
-      vrManager = new VRSessionManager(gl);
-      vrManager.setCallbacks(
-        () => setInVR(true),
-        () => setInVR(false)
-      );
-    }
+    vrManagerRef.current = new VRSessionManager(gl);
+    vrManagerRef.current.setCallbacks(
+      () => setInVR(true),
+      () => setInVR(false)
+    );
 
-    vrManager.isSupported().then(setSupported);
+    vrManagerRef.current.isSupported().then(setSupported);
 
     return () => {
-      vrManager?.dispose();
-      vrManager = null;
+      vrManagerRef.current?.dispose();
     };
   }, [gl, setSupported, setInVR]);
 
   const handleClick = async () => {
-    if (!vrManager || !isSupported) return;
+    if (!vrManagerRef.current || !isSupported) return;
 
     if (isInVR) {
-      vrManager.exitVR();
+      vrManagerRef.current.exitVR();
     } else {
       setEntering(true);
       try {
-        await vrManager.enterVR();
+        await vrManagerRef.current.enterVR();
       } catch (error) {
         console.error('Failed to enter VR:', error);
       } finally {
@@ -571,46 +569,20 @@ export function VRButton() {
     </button>
   );
 }
-
-// Non-canvas version for use outside R3F
-export function VRButtonOverlay() {
-  const { isSupported, isInVR, isEntering } = useVRStore();
-
-  if (!isSupported) {
-    return null;
-  }
-
-  return (
-    <div className="absolute bottom-4 right-4">
-      <button
-        disabled={isEntering}
-        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-          isInVR
-            ? 'bg-red-600 hover:bg-red-700 text-white'
-            : 'bg-primary-600 hover:bg-primary-700 text-white'
-        } disabled:opacity-50`}
-      >
-        <Headset size={20} />
-        {isEntering ? 'Entering VR...' : isInVR ? 'Exit VR' : 'Enter VR'}
-      </button>
-    </div>
-  );
-}
 ```
 
-### 5.5 Create VR Settings Panel
-
-Create `client/src/features/scene-viewer/VRSettings.tsx`:
+Create `client/src/features/vr/VRSettings.tsx`:
 
 ```tsx
-import { Settings } from 'lucide-react';
 import { useState } from 'react';
+import { Settings } from 'lucide-react';
 import { useVRStore } from '@/stores/vrStore';
 import type { LocomotionMode } from '@/engine/vr/VRControls';
 
 export function VRSettings() {
   const [isOpen, setIsOpen] = useState(false);
   const {
+    isSupported,
     locomotionMode,
     smoothSpeed,
     snapTurnAngle,
@@ -620,6 +592,8 @@ export function VRSettings() {
     setSnapTurnAngle,
     setVignetteEnabled,
   } = useVRStore();
+
+  if (!isSupported) return null;
 
   return (
     <div className="absolute top-4 right-4">
@@ -634,7 +608,6 @@ export function VRSettings() {
         <div className="absolute top-12 right-0 w-64 bg-gray-800 rounded-lg shadow-lg p-4">
           <h3 className="text-white font-medium mb-4">VR Settings</h3>
 
-          {/* Locomotion mode */}
           <div className="mb-4">
             <label className="block text-sm text-gray-400 mb-2">Movement</label>
             <select
@@ -648,7 +621,6 @@ export function VRSettings() {
             </select>
           </div>
 
-          {/* Smooth speed (only if smooth mode) */}
           {locomotionMode === 'smooth' && (
             <div className="mb-4">
               <label className="block text-sm text-gray-400 mb-2">
@@ -666,7 +638,6 @@ export function VRSettings() {
             </div>
           )}
 
-          {/* Snap turn angle */}
           <div className="mb-4">
             <label className="block text-sm text-gray-400 mb-2">
               Turn Angle: {snapTurnAngle}°
@@ -682,7 +653,6 @@ export function VRSettings() {
             />
           </div>
 
-          {/* Comfort vignette */}
           <div className="flex items-center justify-between">
             <label className="text-sm text-gray-400">Comfort Vignette</label>
             <button
@@ -705,19 +675,27 @@ export function VRSettings() {
 }
 ```
 
-### 5.6 Integrate VR into Scene Viewer
+Create `client/src/features/vr/index.ts`:
 
-Update `client/src/features/scene-viewer/SceneViewer.tsx` to include VR support:
+```typescript
+export { VRButton } from './VRButton';
+export { VRSettings } from './VRSettings';
+export { useVRStore } from '@/stores/vrStore';
+```
+
+### 5.5 Integrate VR into Scene Viewer
+
+Update `client/src/features/scene-viewer/SceneViewer.tsx`:
 
 ```tsx
 // Add to imports
 import { XR, Controllers, Hands } from '@react-three/xr';
-import { VRButtonOverlay } from './VRButton';
-import { VRSettings } from './VRSettings';
+import { VRButton } from '@/features/vr/VRButton';
+import { VRSettings } from '@/features/vr/VRSettings';
 
-// Update Canvas to use XR wrapper
+// Wrap Canvas content with XR
 export function SceneViewer({ sceneUrl, spawnPosition, spawnRotation, onObjectSelect }: SceneViewerProps) {
-  // ... existing state and effects ...
+  // ... existing code ...
 
   return (
     <div className="relative w-full h-full">
@@ -727,7 +705,6 @@ export function SceneViewer({ sceneUrl, spawnPosition, spawnRotation, onObjectSe
           antialias: true,
           toneMapping: THREE.ACESFilmicToneMapping,
           toneMappingExposure: 1,
-          xr: { enabled: true }, // Enable XR
         }}
         camera={{
           fov: 75,
@@ -752,7 +729,7 @@ export function SceneViewer({ sceneUrl, spawnPosition, spawnRotation, onObjectSe
       </Canvas>
 
       {/* VR UI Overlays */}
-      <VRButtonOverlay />
+      <VRButton />
       <VRSettings />
 
       {/* ... other overlays ... */}
@@ -763,104 +740,21 @@ export function SceneViewer({ sceneUrl, spawnPosition, spawnRotation, onObjectSe
 
 ---
 
-## VR UI Panels (In-World UI)
+## Tauri WebXR Configuration
 
-For material selection in VR, create floating panels:
+Ensure Tauri's WebView supports WebXR. Update `src-tauri/tauri.conf.json`:
 
-Create `client/src/features/scene-viewer/VRMaterialPanel.tsx`:
-
-```tsx
-import { useRef } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
-import { Text, RoundedBox } from '@react-three/drei';
-import * as THREE from 'three';
-import { useMaterialStore } from '@/stores/materialStore';
-
-interface VRMaterialPanelProps {
-  visible: boolean;
-  onSelectMaterial: (materialId: string) => void;
-}
-
-export function VRMaterialPanel({ visible, onSelectMaterial }: VRMaterialPanelProps) {
-  const groupRef = useRef<THREE.Group>(null);
-  const { camera } = useThree();
-  const { getFilteredMaterials } = useMaterialStore();
-
-  const materials = getFilteredMaterials().slice(0, 8); // Limit for VR
-
-  // Position panel in front of user
-  useFrame(() => {
-    if (groupRef.current && visible) {
-      const direction = new THREE.Vector3();
-      camera.getWorldDirection(direction);
-      direction.y = 0;
-      direction.normalize();
-
-      groupRef.current.position.copy(camera.position);
-      groupRef.current.position.addScaledVector(direction, 2);
-      groupRef.current.position.y = camera.position.y;
-      groupRef.current.lookAt(camera.position);
-    }
-  });
-
-  if (!visible) return null;
-
-  return (
-    <group ref={groupRef}>
-      {/* Panel background */}
-      <RoundedBox args={[1.2, 0.8, 0.05]} radius={0.02}>
-        <meshStandardMaterial color="#1f2937" transparent opacity={0.9} />
-      </RoundedBox>
-
-      {/* Title */}
-      <Text
-        position={[0, 0.3, 0.03]}
-        fontSize={0.06}
-        color="white"
-        anchorX="center"
-      >
-        Materials
-      </Text>
-
-      {/* Material buttons */}
-      {materials.map((material, index) => {
-        const col = index % 4;
-        const row = Math.floor(index / 4);
-        const x = (col - 1.5) * 0.25;
-        const y = 0.1 - row * 0.25;
-
-        return (
-          <group key={material.id} position={[x, y, 0.03]}>
-            <mesh
-              onClick={() => onSelectMaterial(material.id)}
-              onPointerOver={(e) => {
-                (e.object as THREE.Mesh).scale.setScalar(1.1);
-              }}
-              onPointerOut={(e) => {
-                (e.object as THREE.Mesh).scale.setScalar(1);
-              }}
-            >
-              <boxGeometry args={[0.2, 0.2, 0.02]} />
-              <meshPhysicalMaterial
-                color={material.color || '#888888'}
-                metalness={material.metalness}
-                roughness={material.roughness}
-              />
-            </mesh>
-            <Text
-              position={[0, -0.13, 0]}
-              fontSize={0.025}
-              color="white"
-              anchorX="center"
-              maxWidth={0.2}
-            >
-              {material.name}
-            </Text>
-          </group>
-        );
-      })}
-    </group>
-  );
+```json
+{
+  "app": {
+    "windows": [
+      {
+        "webviewAttributes": {
+          "allowFileAccessFromFileUrls": true
+        }
+      }
+    ]
+  }
 }
 ```
 
@@ -877,30 +771,51 @@ After completing Phase 5, verify:
 - [ ] Smooth locomotion works (if selected)
 - [ ] Snap turning works
 - [ ] Objects can be selected with controllers
-- [ ] Material panel appears in VR
+- [ ] Settings persist after restart
 - [ ] Exit VR works properly
 
 ---
 
 ## Testing VR
 
-To test without a headset:
-
+**Without a headset:**
 1. Install Chrome WebXR Emulator extension
 2. Enable VR device emulation in DevTools
 3. Test basic functionality
 
-For real testing:
-1. Use Meta Quest with Link or Air Link
-2. Use SteamVR with compatible headset
-3. Test on Quest browser for standalone
+**With headset:**
+1. Meta Quest with Link or Air Link
+2. SteamVR with compatible headset
+3. Windows Mixed Reality headsets
+
+---
+
+## Future: Native OpenXR (v2.0)
+
+For v2.0, implement native OpenXR in Rust:
+
+```rust
+// Future: src-tauri/src/vr/openxr_session.rs
+use openxr as xr;
+
+pub struct OpenXRSession {
+    instance: xr::Instance,
+    session: xr::Session<xr::Vulkan>,
+    // ...
+}
+```
+
+Benefits of native OpenXR:
+- Direct GPU access (no WebView overhead)
+- Full feature access (foveated rendering, etc.)
+- Better performance for complex scenes
+- Hand tracking without WebXR limitations
 
 ---
 
 ## Next Phase
 
-After Phase 5 is complete, proceed to **Phase 6: PWA & Offline** which covers:
-- Service worker setup
-- IndexedDB storage
-- Offline capability
-- Background sync
+After Phase 5 is complete, proceed to **Phase 6: Cloud Sync & License** which covers:
+- Optional cloud backup
+- License key validation
+- User account management

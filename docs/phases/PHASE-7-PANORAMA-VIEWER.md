@@ -1,20 +1,20 @@
 # Phase 7: Panorama Viewer
 
-> **Estimated Scope**: Rewrite panorama viewer as secondary feature
-> **Prerequisites**: Phase 6 complete (PWA working)
-> **Outputs**: Clean, functional 360° panorama viewer
+> **Scope**: 360° panorama viewing with hotspot navigation
+> **Prerequisites**: Phase 6 complete (cloud sync & license)
+> **Outputs**: Full panorama viewing experience with hotspots
 
 ---
 
 ## Overview
 
-This phase fixes and rewrites the panorama viewer:
+This phase implements the panorama viewing system for the Tauri desktop app:
 
-1. Rewrite using React Three Fiber (consistent with scene viewer)
-2. Hotspot system (navigation, info, media, link)
-3. Stereo VR support for panoramas
-4. Integration with project system
-5. Smooth transitions between panoramas
+1. 360° equirectangular panorama rendering
+2. Hotspot system (navigation, info, media)
+3. Smooth transitions between panoramas
+4. Panorama editor for hotspot placement
+5. Local file storage via Tauri
 
 ---
 
@@ -22,15 +22,11 @@ This phase fixes and rewrites the panorama viewer:
 
 If you're starting a new Claude session to work on this phase:
 
-- **Project**: Ozone Studio - 3D scene viewer for interior designers
-- **Current State**: Phase 6 complete (full app with offline support)
+- **Project**: Ozone Studio - 3D scene viewer (Tauri desktop app)
+- **Current State**: Phase 6 complete (license & cloud sync)
 - **Working Directory**: `C:/Users/Lion/ozone-virtual-tours`
-- **Focus**: Fixing the panorama viewer (secondary feature)
-
-The panorama viewer is a **secondary feature** alongside the main 3D GLB viewer. It's kept for:
-- Backward compatibility with existing tours
-- Quick previews without full 3D scenes
-- Simpler content creation workflow
+- **Focus**: Building panorama viewer and hotspot system
+- **Storage**: Local files via Tauri file system API
 
 Read `/docs/ARCHITECTURE.md` for full context.
 
@@ -38,7 +34,252 @@ Read `/docs/ARCHITECTURE.md` for full context.
 
 ## Task Checklist
 
-### 7.1 Create Panorama Store
+### 7.1 Panorama Types
+
+Create `client/src/types/panorama.ts`:
+
+```typescript
+export interface Panorama {
+  id: string;
+  name: string;
+  description?: string;
+
+  imagePath: string; // Relative path to equirectangular image
+  thumbnailPath?: string;
+
+  initialYaw: number; // Starting rotation (degrees)
+  initialPitch: number;
+
+  projectId: string;
+  order: number;
+
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type HotspotType = 'navigation' | 'info' | 'media' | 'link';
+
+export interface Hotspot {
+  id: string;
+  type: HotspotType;
+
+  yaw: number; // Horizontal position (degrees, -180 to 180)
+  pitch: number; // Vertical position (degrees, -90 to 90)
+
+  // For navigation hotspots
+  targetPanoramaId?: string;
+
+  // For info/media hotspots
+  content?: HotspotContent;
+
+  // Visual customization
+  icon?: string;
+  color?: string;
+  scale?: number;
+
+  panoramaId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HotspotContent {
+  title?: string;
+  description?: string;
+  url?: string;
+  mediaPath?: string;
+  mediaType?: 'image' | 'video';
+}
+
+export interface CreatePanorama {
+  name: string;
+  description?: string;
+  imagePath: string;
+  thumbnailPath?: string;
+  initialYaw?: number;
+  initialPitch?: number;
+  projectId: string;
+}
+
+export interface CreateHotspot {
+  type: HotspotType;
+  yaw: number;
+  pitch: number;
+  targetPanoramaId?: string;
+  content?: HotspotContent;
+  icon?: string;
+  color?: string;
+  scale?: number;
+  panoramaId: string;
+}
+```
+
+### 7.2 Rust Panorama Commands
+
+Add to `src-tauri/src/commands/panoramas.rs`:
+
+```rust
+use crate::db::Database;
+use crate::models::{Panorama, Hotspot, CreatePanorama, CreateHotspot};
+use tauri::State;
+use std::sync::Mutex;
+
+#[tauri::command]
+pub fn list_panoramas(project_id: &str, db: State<Mutex<Database>>) -> Result<Vec<Panorama>, String> {
+    let db = db.lock().map_err(|e| e.to_string())?;
+    db.list_panoramas(project_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_panorama(id: &str, db: State<Mutex<Database>>) -> Result<Panorama, String> {
+    let db = db.lock().map_err(|e| e.to_string())?;
+    db.get_panorama(id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_panorama(data: CreatePanorama, db: State<Mutex<Database>>) -> Result<Panorama, String> {
+    let db = db.lock().map_err(|e| e.to_string())?;
+    db.create_panorama(data).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_panorama(id: &str, data: serde_json::Value, db: State<Mutex<Database>>) -> Result<Panorama, String> {
+    let db = db.lock().map_err(|e| e.to_string())?;
+    db.update_panorama(id, data).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_panorama(id: &str, db: State<Mutex<Database>>) -> Result<(), String> {
+    let db = db.lock().map_err(|e| e.to_string())?;
+    db.delete_panorama(id).map_err(|e| e.to_string())
+}
+
+// Hotspots
+#[tauri::command]
+pub fn list_hotspots(panorama_id: &str, db: State<Mutex<Database>>) -> Result<Vec<Hotspot>, String> {
+    let db = db.lock().map_err(|e| e.to_string())?;
+    db.list_hotspots(panorama_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_hotspot(data: CreateHotspot, db: State<Mutex<Database>>) -> Result<Hotspot, String> {
+    let db = db.lock().map_err(|e| e.to_string())?;
+    db.create_hotspot(data).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_hotspot(id: &str, data: serde_json::Value, db: State<Mutex<Database>>) -> Result<Hotspot, String> {
+    let db = db.lock().map_err(|e| e.to_string())?;
+    db.update_hotspot(id, data).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_hotspot(id: &str, db: State<Mutex<Database>>) -> Result<(), String> {
+    let db = db.lock().map_err(|e| e.to_string())?;
+    db.delete_hotspot(id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn import_panorama_image(
+    source_path: &str,
+    project_id: &str,
+    db: State<'_, Mutex<Database>>,
+) -> Result<String, String> {
+    use std::path::Path;
+    use std::fs;
+
+    let data_path = {
+        let db = db.lock().map_err(|e| e.to_string())?;
+        db.get_settings().map_err(|e| e.to_string())?.data_path
+    };
+
+    let pano_dir = Path::new(&data_path)
+        .join("projects")
+        .join(project_id)
+        .join("panoramas");
+    fs::create_dir_all(&pano_dir).map_err(|e| e.to_string())?;
+
+    let source = Path::new(source_path);
+    let filename = source.file_name()
+        .and_then(|n| n.to_str())
+        .ok_or("Invalid filename")?;
+
+    let id = uuid::Uuid::new_v4().to_string();
+    let extension = source.extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("jpg");
+    let dest_filename = format!("{}_{}.{}", id, filename, extension);
+    let dest_path = pano_dir.join(&dest_filename);
+
+    fs::copy(source_path, &dest_path).map_err(|e| e.to_string())?;
+
+    let relative_path = format!("projects/{}/panoramas/{}", project_id, dest_filename);
+    Ok(relative_path)
+}
+```
+
+### 7.3 Panorama Service
+
+Create `client/src/services/panoramaService.ts`:
+
+```typescript
+import { invoke } from '@tauri-apps/api/core';
+import { open } from '@tauri-apps/plugin-dialog';
+import type { Panorama, Hotspot, CreatePanorama, CreateHotspot } from '@/types/panorama';
+
+export const panoramaService = {
+  async list(projectId: string): Promise<Panorama[]> {
+    return invoke<Panorama[]>('list_panoramas', { projectId });
+  },
+
+  async get(id: string): Promise<Panorama> {
+    return invoke<Panorama>('get_panorama', { id });
+  },
+
+  async create(data: CreatePanorama): Promise<Panorama> {
+    return invoke<Panorama>('create_panorama', { data });
+  },
+
+  async update(id: string, data: Partial<Panorama>): Promise<Panorama> {
+    return invoke<Panorama>('update_panorama', { id, data });
+  },
+
+  async delete(id: string): Promise<void> {
+    return invoke('delete_panorama', { id });
+  },
+
+  async importImage(projectId: string): Promise<string | null> {
+    const selected = await open({
+      multiple: false,
+      filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp'] }],
+    });
+
+    if (!selected) return null;
+
+    return invoke<string>('import_panorama_image', {
+      sourcePath: selected,
+      projectId,
+    });
+  },
+
+  async listHotspots(panoramaId: string): Promise<Hotspot[]> {
+    return invoke<Hotspot[]>('list_hotspots', { panoramaId });
+  },
+
+  async createHotspot(data: CreateHotspot): Promise<Hotspot> {
+    return invoke<Hotspot>('create_hotspot', { data });
+  },
+
+  async updateHotspot(id: string, data: Partial<Hotspot>): Promise<Hotspot> {
+    return invoke<Hotspot>('update_hotspot', { id, data });
+  },
+
+  async deleteHotspot(id: string): Promise<void> {
+    return invoke('delete_hotspot', { id });
+  },
+};
+```
+
+### 7.4 Panorama Store
 
 Create `client/src/stores/panoramaStore.ts`:
 
@@ -48,632 +289,367 @@ import { devtools } from 'zustand/middleware';
 import type { Panorama, Hotspot } from '@/types/panorama';
 
 interface PanoramaState {
-  // Current panorama
-  currentPanorama: Panorama | null;
+  currentPanoramaId: string | null;
   panoramas: Panorama[];
-  isLoading: boolean;
-  error: string | null;
-
-  // View state
+  hotspots: Hotspot[];
   yaw: number;
   pitch: number;
   fov: number;
-
-  // Interaction
-  hoveredHotspotId: string | null;
-  activeHotspotId: string | null;
-
-  // Transition
+  isLoading: boolean;
   isTransitioning: boolean;
+  isEditing: boolean;
+  selectedHotspotId: string | null;
 
-  // Actions
-  setPanorama: (panorama: Panorama | null) => void;
   setPanoramas: (panoramas: Panorama[]) => void;
+  setHotspots: (hotspots: Hotspot[]) => void;
+  setCurrentPanorama: (id: string | null) => void;
+  setCamera: (yaw: number, pitch: number, fov?: number) => void;
   setLoading: (loading: boolean) => void;
-  setError: (error: string | null) => void;
-  setView: (yaw: number, pitch: number) => void;
-  setFov: (fov: number) => void;
-  setHoveredHotspot: (id: string | null) => void;
-  setActiveHotspot: (id: string | null) => void;
-  navigateTo: (panoramaId: string) => void;
+  setTransitioning: (transitioning: boolean) => void;
+  setEditing: (editing: boolean) => void;
+  setSelectedHotspot: (id: string | null) => void;
+  addHotspot: (hotspot: Hotspot) => void;
+  updateHotspot: (id: string, updates: Partial<Hotspot>) => void;
+  removeHotspot: (id: string) => void;
   reset: () => void;
 }
 
-const initialState = {
-  currentPanorama: null,
-  panoramas: [],
-  isLoading: false,
-  error: null,
-  yaw: 0,
-  pitch: 0,
-  fov: 75,
-  hoveredHotspotId: null,
-  activeHotspotId: null,
-  isTransitioning: false,
-};
-
 export const usePanoramaStore = create<PanoramaState>()(
   devtools(
-    (set, get) => ({
-      ...initialState,
-
-      setPanorama: (panorama) =>
-        set({
-          currentPanorama: panorama,
-          yaw: panorama?.initialYaw ?? 0,
-          pitch: panorama?.initialPitch ?? 0,
-          error: null,
-        }),
+    (set) => ({
+      currentPanoramaId: null,
+      panoramas: [],
+      hotspots: [],
+      yaw: 0,
+      pitch: 0,
+      fov: 75,
+      isLoading: false,
+      isTransitioning: false,
+      isEditing: false,
+      selectedHotspotId: null,
 
       setPanoramas: (panoramas) => set({ panoramas }),
-
+      setHotspots: (hotspots) => set({ hotspots }),
+      setCurrentPanorama: (id) => set({ currentPanoramaId: id }),
+      setCamera: (yaw, pitch, fov) =>
+        set((state) => ({ yaw, pitch, fov: fov ?? state.fov })),
       setLoading: (loading) => set({ isLoading: loading }),
+      setTransitioning: (transitioning) => set({ isTransitioning: transitioning }),
+      setEditing: (editing) => set({ isEditing: editing }),
+      setSelectedHotspot: (id) => set({ selectedHotspotId: id }),
 
-      setError: (error) => set({ error, isLoading: false }),
+      addHotspot: (hotspot) =>
+        set((state) => ({ hotspots: [...state.hotspots, hotspot] })),
 
-      setView: (yaw, pitch) => set({ yaw, pitch }),
+      updateHotspot: (id, updates) =>
+        set((state) => ({
+          hotspots: state.hotspots.map((h) =>
+            h.id === id ? { ...h, ...updates } : h
+          ),
+        })),
 
-      setFov: (fov) => set({ fov: Math.max(30, Math.min(100, fov)) }),
+      removeHotspot: (id) =>
+        set((state) => ({
+          hotspots: state.hotspots.filter((h) => h.id !== id),
+          selectedHotspotId:
+            state.selectedHotspotId === id ? null : state.selectedHotspotId,
+        })),
 
-      setHoveredHotspot: (id) => set({ hoveredHotspotId: id }),
-
-      setActiveHotspot: (id) => set({ activeHotspotId: id }),
-
-      navigateTo: (panoramaId) => {
-        const { panoramas } = get();
-        const target = panoramas.find((p) => p.id === panoramaId);
-
-        if (target) {
-          set({ isTransitioning: true });
-
-          // Fade out, change panorama, fade in
-          setTimeout(() => {
-            set({
-              currentPanorama: target,
-              yaw: target.initialYaw,
-              pitch: target.initialPitch,
-              isTransitioning: false,
-            });
-          }, 300);
-        }
-      },
-
-      reset: () => set(initialState),
+      reset: () =>
+        set({
+          currentPanoramaId: null,
+          panoramas: [],
+          hotspots: [],
+          yaw: 0,
+          pitch: 0,
+          fov: 75,
+          isLoading: false,
+          isTransitioning: false,
+          isEditing: false,
+          selectedHotspotId: null,
+        }),
     }),
     { name: 'panorama-store' }
   )
 );
 ```
 
-### 7.2 Create Panorama Types
-
-Create `client/src/types/panorama.ts`:
-
-```typescript
-export type HotspotType = 'NAVIGATION' | 'INFO' | 'MEDIA' | 'LINK';
-
-export interface Hotspot {
-  id: string;
-  type: HotspotType;
-  yaw: number;
-  pitch: number;
-  targetId?: string; // For NAVIGATION type
-  content?: {
-    title?: string;
-    description?: string;
-    url?: string;
-    mediaUrl?: string;
-    mediaType?: 'image' | 'video';
-  };
-  icon?: string;
-  color?: string;
-}
-
-export interface Panorama {
-  id: string;
-  name: string;
-  description?: string;
-  imageUrl: string;
-  stereoUrl?: string;
-  thumbnailUrl?: string;
-  initialYaw: number;
-  initialPitch: number;
-  projectId: string;
-  hotspots: Hotspot[];
-  order: number;
-}
-```
-
-### 7.3 Create Panorama Viewer Component
+### 7.5 Panorama Viewer Component
 
 Create `client/src/features/panorama/PanoramaViewer.tsx`:
 
 ```tsx
-import { useEffect, useRef, useMemo } from 'react';
-import { Canvas, useFrame, useThree, useLoader } from '@react-three/fiber';
-import { TextureLoader, BackSide, SphereGeometry, MeshBasicMaterial } from 'three';
+import { useEffect, useRef } from 'react';
+import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { usePanoramaStore } from '@/stores/panoramaStore';
-import { PanoramaControls } from './PanoramaControls';
-import { PanoramaHotspot } from './PanoramaHotspot';
-import { HotspotModal } from './HotspotModal';
-import { PanoramaThumbnails } from './PanoramaThumbnails';
+import { getAssetUrl } from '@/lib/tauri-file';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { HotspotMarker } from './HotspotMarker';
 
 interface PanoramaViewerProps {
-  projectId: string;
-  initialPanoramaId?: string;
+  imagePath: string;
+  onHotspotClick?: (hotspotId: string) => void;
 }
 
-export function PanoramaViewer({ projectId, initialPanoramaId }: PanoramaViewerProps) {
-  const {
-    currentPanorama,
-    isLoading,
-    error,
-    isTransitioning,
-    activeHotspotId,
-    setActiveHotspot,
-  } = usePanoramaStore();
+export function PanoramaViewer({ imagePath, onHotspotClick }: PanoramaViewerProps) {
+  const dataPath = useSettingsStore((s) => s.settings?.dataPath);
+  const { hotspots, isTransitioning, setLoading } = usePanoramaStore();
 
-  // TODO: Fetch panoramas for project
-  // useEffect(() => { ... }, [projectId]);
+  const imageUrl = dataPath ? getAssetUrl(`${dataPath}/${imagePath}`) : null;
 
-  if (error) {
+  if (!imageUrl) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-gray-900 text-white">
-        <div className="text-center">
-          <p className="text-red-400 text-lg mb-4">Failed to load panorama</p>
-          <p className="text-gray-400">{error}</p>
-        </div>
+        Loading...
       </div>
     );
   }
 
   return (
-    <div className="relative w-full h-full">
+    <div className="w-full h-full relative">
       <Canvas camera={{ fov: 75, near: 0.1, far: 1000, position: [0, 0, 0.1] }}>
-        {currentPanorama && (
-          <PanoramaSphere
-            imageUrl={currentPanorama.imageUrl}
-            hotspots={currentPanorama.hotspots}
-          />
-        )}
+        <PanoramaSphere imageUrl={imageUrl} onLoad={() => setLoading(false)} />
         <PanoramaControls />
+
+        {hotspots.map((hotspot) => (
+          <HotspotMarker
+            key={hotspot.id}
+            hotspot={hotspot}
+            onClick={() => onHotspotClick?.(hotspot.id)}
+          />
+        ))}
       </Canvas>
 
-      {/* Transition overlay */}
       {isTransitioning && (
-        <div className="absolute inset-0 bg-black pointer-events-none animate-pulse" />
-      )}
-
-      {/* Loading overlay */}
-      {isLoading && (
-        <div className="absolute inset-0 bg-gray-900 flex items-center justify-center">
-          <div className="animate-spin w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full" />
-        </div>
-      )}
-
-      {/* Thumbnails navigation */}
-      <PanoramaThumbnails />
-
-      {/* Hotspot modal */}
-      {activeHotspotId && (
-        <HotspotModal
-          hotspotId={activeHotspotId}
-          onClose={() => setActiveHotspot(null)}
-        />
+        <div className="absolute inset-0 bg-black/50 transition-opacity" />
       )}
     </div>
   );
 }
 
-interface PanoramaSphereProps {
-  imageUrl: string;
-  hotspots: Hotspot[];
-}
+function PanoramaSphere({ imageUrl, onLoad }: { imageUrl: string; onLoad?: () => void }) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const { setLoading } = usePanoramaStore();
 
-function PanoramaSphere({ imageUrl, hotspots }: PanoramaSphereProps) {
-  const texture = useLoader(TextureLoader, imageUrl);
-  const { yaw, pitch, fov } = usePanoramaStore();
-  const { camera } = useThree();
+  useEffect(() => {
+    setLoading(true);
+    const loader = new THREE.TextureLoader();
 
-  // Configure texture
-  useMemo(() => {
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-  }, [texture]);
+    loader.load(
+      imageUrl,
+      (texture) => {
+        texture.mapping = THREE.EquirectangularReflectionMapping;
+        texture.colorSpace = THREE.SRGBColorSpace;
 
-  // Update camera based on store
-  useFrame(() => {
-    const phi = THREE.MathUtils.degToRad(90 - pitch);
-    const theta = THREE.MathUtils.degToRad(yaw);
+        if (meshRef.current) {
+          const material = meshRef.current.material as THREE.MeshBasicMaterial;
+          material.map = texture;
+          material.needsUpdate = true;
+        }
 
-    camera.position.set(0, 0, 0);
-    camera.lookAt(
-      Math.sin(phi) * Math.cos(theta),
-      Math.cos(phi),
-      Math.sin(phi) * Math.sin(theta)
+        onLoad?.();
+      },
+      undefined,
+      (error) => {
+        console.error('Failed to load panorama:', error);
+        setLoading(false);
+      }
     );
-
-    if ((camera as THREE.PerspectiveCamera).fov !== fov) {
-      (camera as THREE.PerspectiveCamera).fov = fov;
-      (camera as THREE.PerspectiveCamera).updateProjectionMatrix();
-    }
-  });
+  }, [imageUrl, onLoad, setLoading]);
 
   return (
-    <>
-      {/* Panorama sphere */}
-      <mesh scale={[-1, 1, 1]}>
-        <sphereGeometry args={[500, 60, 40]} />
-        <meshBasicMaterial map={texture} side={BackSide} />
-      </mesh>
-
-      {/* Hotspots */}
-      {hotspots.map((hotspot) => (
-        <PanoramaHotspot key={hotspot.id} hotspot={hotspot} />
-      ))}
-    </>
+    <mesh ref={meshRef} scale={[-1, 1, 1]}>
+      <sphereGeometry args={[500, 60, 40]} />
+      <meshBasicMaterial side={THREE.BackSide} />
+    </mesh>
   );
 }
 
-// Import Hotspot type
-import type { Hotspot } from '@/types/panorama';
-```
-
-### 7.4 Create Panorama Controls
-
-Create `client/src/features/panorama/PanoramaControls.tsx`:
-
-```tsx
-import { useEffect, useRef } from 'react';
-import { useThree, useFrame } from '@react-three/fiber';
-import { usePanoramaStore } from '@/stores/panoramaStore';
-
-export function PanoramaControls() {
-  const { gl } = useThree();
-  const { yaw, pitch, fov, setView, setFov } = usePanoramaStore();
+function PanoramaControls() {
+  const { camera, gl } = useThree();
+  const { yaw, pitch, setCamera } = usePanoramaStore();
 
   const isDragging = useRef(false);
-  const lastPosition = useRef({ x: 0, y: 0 });
-  const velocity = useRef({ x: 0, y: 0 });
+  const prevMouse = useRef({ x: 0, y: 0 });
+  const targetRotation = useRef({ yaw: 0, pitch: 0 });
 
   useEffect(() => {
-    const canvas = gl.domElement;
+    targetRotation.current = { yaw, pitch };
+  }, [yaw, pitch]);
 
-    const onPointerDown = (e: PointerEvent) => {
+  useEffect(() => {
+    const domElement = gl.domElement;
+
+    const handlePointerDown = (e: PointerEvent) => {
       isDragging.current = true;
-      lastPosition.current = { x: e.clientX, y: e.clientY };
-      velocity.current = { x: 0, y: 0 };
-      canvas.style.cursor = 'grabbing';
+      prevMouse.current = { x: e.clientX, y: e.clientY };
+      domElement.setPointerCapture(e.pointerId);
     };
 
-    const onPointerMove = (e: PointerEvent) => {
+    const handlePointerMove = (e: PointerEvent) => {
       if (!isDragging.current) return;
 
-      const deltaX = e.clientX - lastPosition.current.x;
-      const deltaY = e.clientY - lastPosition.current.y;
+      const deltaX = e.clientX - prevMouse.current.x;
+      const deltaY = e.clientY - prevMouse.current.y;
 
-      velocity.current = { x: deltaX, y: deltaY };
+      targetRotation.current.yaw -= deltaX * 0.2;
+      targetRotation.current.pitch = Math.max(
+        -85,
+        Math.min(85, targetRotation.current.pitch + deltaY * 0.2)
+      );
 
-      const newYaw = yaw - deltaX * 0.2;
-      const newPitch = Math.max(-85, Math.min(85, pitch + deltaY * 0.2));
-
-      setView(newYaw, newPitch);
-      lastPosition.current = { x: e.clientX, y: e.clientY };
+      prevMouse.current = { x: e.clientX, y: e.clientY };
     };
 
-    const onPointerUp = () => {
+    const handlePointerUp = (e: PointerEvent) => {
       isDragging.current = false;
-      canvas.style.cursor = 'grab';
+      domElement.releasePointerCapture(e.pointerId);
+      setCamera(targetRotation.current.yaw, targetRotation.current.pitch);
     };
 
-    const onWheel = (e: WheelEvent) => {
+    const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const newFov = fov + e.deltaY * 0.05;
-      setFov(newFov);
+      const newFov = Math.max(30, Math.min(100, (camera as THREE.PerspectiveCamera).fov + e.deltaY * 0.05));
+      (camera as THREE.PerspectiveCamera).fov = newFov;
+      (camera as THREE.PerspectiveCamera).updateProjectionMatrix();
     };
 
-    canvas.addEventListener('pointerdown', onPointerDown);
-    canvas.addEventListener('pointermove', onPointerMove);
-    canvas.addEventListener('pointerup', onPointerUp);
-    canvas.addEventListener('pointerleave', onPointerUp);
-    canvas.addEventListener('wheel', onWheel, { passive: false });
-    canvas.style.cursor = 'grab';
+    domElement.addEventListener('pointerdown', handlePointerDown);
+    domElement.addEventListener('pointermove', handlePointerMove);
+    domElement.addEventListener('pointerup', handlePointerUp);
+    domElement.addEventListener('wheel', handleWheel, { passive: false });
 
     return () => {
-      canvas.removeEventListener('pointerdown', onPointerDown);
-      canvas.removeEventListener('pointermove', onPointerMove);
-      canvas.removeEventListener('pointerup', onPointerUp);
-      canvas.removeEventListener('pointerleave', onPointerUp);
-      canvas.removeEventListener('wheel', onWheel);
+      domElement.removeEventListener('pointerdown', handlePointerDown);
+      domElement.removeEventListener('pointermove', handlePointerMove);
+      domElement.removeEventListener('pointerup', handlePointerUp);
+      domElement.removeEventListener('wheel', handleWheel);
     };
-  }, [gl, yaw, pitch, fov, setView, setFov]);
+  }, [gl.domElement, camera, setCamera]);
 
-  // Momentum/inertia
   useFrame(() => {
-    if (!isDragging.current && (Math.abs(velocity.current.x) > 0.1 || Math.abs(velocity.current.y) > 0.1)) {
-      const newYaw = yaw - velocity.current.x * 0.2;
-      const newPitch = Math.max(-85, Math.min(85, pitch + velocity.current.y * 0.2));
+    const { yaw, pitch } = targetRotation.current;
 
-      setView(newYaw, newPitch);
+    const phi = THREE.MathUtils.degToRad(90 - pitch);
+    const theta = THREE.MathUtils.degToRad(yaw);
 
-      // Decay velocity
-      velocity.current.x *= 0.95;
-      velocity.current.y *= 0.95;
-    }
+    const target = new THREE.Vector3(
+      Math.sin(phi) * Math.sin(theta),
+      Math.cos(phi),
+      Math.sin(phi) * Math.cos(theta)
+    );
+
+    camera.lookAt(target);
   });
 
   return null;
 }
 ```
 
-### 7.5 Create Hotspot Component
+### 7.6 Hotspot Marker
 
-Create `client/src/features/panorama/PanoramaHotspot.tsx`:
+Create `client/src/features/panorama/HotspotMarker.tsx`:
 
 ```tsx
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { usePanoramaStore } from '@/stores/panoramaStore';
 import type { Hotspot } from '@/types/panorama';
+import { usePanoramaStore } from '@/stores/panoramaStore';
 
-const HOTSPOT_COLORS: Record<string, string> = {
-  NAVIGATION: '#3b82f6',
-  INFO: '#22c55e',
-  MEDIA: '#a855f7',
-  LINK: '#f59e0b',
-};
-
-interface PanoramaHotspotProps {
+interface HotspotMarkerProps {
   hotspot: Hotspot;
+  onClick?: () => void;
 }
 
-export function PanoramaHotspot({ hotspot }: PanoramaHotspotProps) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const [hovered, setHovered] = useState(false);
-  const {
-    hoveredHotspotId,
-    setHoveredHotspot,
-    setActiveHotspot,
-    navigateTo,
-  } = usePanoramaStore();
+export function HotspotMarker({ hotspot, onClick }: HotspotMarkerProps) {
+  const groupRef = useRef<THREE.Group>(null);
+  const { selectedHotspotId, isEditing } = usePanoramaStore();
+  const isSelected = selectedHotspotId === hotspot.id;
 
-  // Convert spherical to cartesian
-  const position = sphericalToCartesian(hotspot.yaw, hotspot.pitch, 10);
+  const phi = THREE.MathUtils.degToRad(90 - hotspot.pitch);
+  const theta = THREE.MathUtils.degToRad(hotspot.yaw);
 
-  // Scale animation when hovered
-  useFrame(() => {
-    if (meshRef.current) {
-      const targetScale = hovered ? 1.3 : 1;
-      meshRef.current.scale.lerp(
-        new THREE.Vector3(targetScale, targetScale, targetScale),
-        0.1
-      );
+  const distance = 50;
+  const position = new THREE.Vector3(
+    distance * Math.sin(phi) * Math.sin(theta),
+    distance * Math.cos(phi),
+    distance * Math.sin(phi) * Math.cos(theta)
+  );
 
-      // Always face camera
-      meshRef.current.lookAt(0, 0, 0);
+  useFrame(({ camera }) => {
+    if (groupRef.current) {
+      groupRef.current.lookAt(camera.position);
     }
   });
 
-  const handleClick = () => {
-    if (hotspot.type === 'NAVIGATION' && hotspot.targetId) {
-      navigateTo(hotspot.targetId);
-    } else {
-      setActiveHotspot(hotspot.id);
+  const getColor = () => {
+    if (isSelected) return '#00ff00';
+    switch (hotspot.type) {
+      case 'navigation': return hotspot.color || '#ffffff';
+      case 'info': return hotspot.color || '#3b82f6';
+      case 'media': return hotspot.color || '#8b5cf6';
+      case 'link': return hotspot.color || '#f59e0b';
+      default: return '#ffffff';
     }
   };
 
-  const color = hotspot.color || HOTSPOT_COLORS[hotspot.type] || '#ffffff';
+  const scale = hotspot.scale ?? 1;
 
   return (
-    <mesh
-      ref={meshRef}
+    <group
+      ref={groupRef}
       position={position}
-      onClick={handleClick}
-      onPointerOver={() => {
-        setHovered(true);
-        setHoveredHotspot(hotspot.id);
-        document.body.style.cursor = 'pointer';
-      }}
-      onPointerOut={() => {
-        setHovered(false);
-        setHoveredHotspot(null);
-        document.body.style.cursor = 'default';
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.();
       }}
     >
-      {/* Hotspot ring */}
-      <ringGeometry args={[0.3, 0.5, 32]} />
-      <meshBasicMaterial
-        color={color}
-        transparent
-        opacity={hovered ? 1 : 0.8}
-        side={THREE.DoubleSide}
-      />
-
-      {/* Inner circle */}
-      <mesh position={[0, 0, 0.01]}>
-        <circleGeometry args={[0.25, 32]} />
+      <mesh>
+        <ringGeometry args={[1.5 * scale, 2 * scale, 32]} />
         <meshBasicMaterial
-          color={color}
+          color={getColor()}
+          transparent
+          opacity={isSelected ? 1 : 0.8}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      <mesh position={[0, 0, 0.01]}>
+        <circleGeometry args={[1.2 * scale, 32]} />
+        <meshBasicMaterial
+          color={getColor()}
           transparent
           opacity={0.3}
           side={THREE.DoubleSide}
         />
       </mesh>
 
-      {/* Pulse animation ring */}
-      {hovered && (
+      {isEditing && isSelected && (
         <mesh position={[0, 0, -0.01]}>
-          <ringGeometry args={[0.5, 0.6, 32]} />
+          <ringGeometry args={[2.5 * scale, 3 * scale, 32]} />
           <meshBasicMaterial
-            color={color}
+            color="#00ff00"
             transparent
             opacity={0.5}
             side={THREE.DoubleSide}
           />
         </mesh>
       )}
-    </mesh>
-  );
-}
-
-function sphericalToCartesian(
-  yaw: number,
-  pitch: number,
-  radius: number
-): [number, number, number] {
-  const phi = THREE.MathUtils.degToRad(90 - pitch);
-  const theta = THREE.MathUtils.degToRad(yaw);
-
-  return [
-    radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  ];
-}
-```
-
-### 7.6 Create Hotspot Modal
-
-Create `client/src/features/panorama/HotspotModal.tsx`:
-
-```tsx
-import { X, ExternalLink, Play } from 'lucide-react';
-import { usePanoramaStore } from '@/stores/panoramaStore';
-
-interface HotspotModalProps {
-  hotspotId: string;
-  onClose: () => void;
-}
-
-export function HotspotModal({ hotspotId, onClose }: HotspotModalProps) {
-  const { currentPanorama } = usePanoramaStore();
-  const hotspot = currentPanorama?.hotspots.find((h) => h.id === hotspotId);
-
-  if (!hotspot || !hotspot.content) return null;
-
-  const { title, description, url, mediaUrl, mediaType } = hotspot.content;
-
-  return (
-    <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-50">
-      <div className="bg-gray-800 rounded-lg max-w-lg w-full mx-4 overflow-hidden">
-        {/* Media */}
-        {mediaUrl && (
-          <div className="aspect-video bg-gray-900">
-            {mediaType === 'video' ? (
-              <video src={mediaUrl} controls className="w-full h-full" />
-            ) : (
-              <img
-                src={mediaUrl}
-                alt={title || 'Media'}
-                className="w-full h-full object-cover"
-              />
-            )}
-          </div>
-        )}
-
-        {/* Content */}
-        <div className="p-4">
-          <div className="flex items-start justify-between mb-2">
-            <h3 className="text-lg font-semibold text-white">{title || 'Information'}</h3>
-            <button
-              onClick={onClose}
-              className="p-1 text-gray-400 hover:text-white"
-            >
-              <X size={20} />
-            </button>
-          </div>
-
-          {description && (
-            <p className="text-gray-300 mb-4">{description}</p>
-          )}
-
-          {url && (
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-primary-400 hover:text-primary-300"
-            >
-              <ExternalLink size={16} />
-              Learn more
-            </a>
-          )}
-        </div>
-      </div>
-    </div>
+    </group>
   );
 }
 ```
 
-### 7.7 Create Panorama Thumbnails
-
-Create `client/src/features/panorama/PanoramaThumbnails.tsx`:
-
-```tsx
-import { usePanoramaStore } from '@/stores/panoramaStore';
-
-export function PanoramaThumbnails() {
-  const { panoramas, currentPanorama, navigateTo } = usePanoramaStore();
-
-  if (panoramas.length <= 1) return null;
-
-  return (
-    <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
-      <div className="flex gap-2 bg-black/50 backdrop-blur-sm rounded-lg p-2">
-        {panoramas.map((panorama) => (
-          <button
-            key={panorama.id}
-            onClick={() => navigateTo(panorama.id)}
-            className={`relative w-16 h-12 rounded overflow-hidden transition-all ${
-              currentPanorama?.id === panorama.id
-                ? 'ring-2 ring-primary-500 scale-105'
-                : 'opacity-70 hover:opacity-100'
-            }`}
-          >
-            <img
-              src={panorama.thumbnailUrl || panorama.imageUrl}
-              alt={panorama.name}
-              className="w-full h-full object-cover"
-            />
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-```
-
-### 7.8 Export Panorama Feature
+### 7.7 Export Feature
 
 Create `client/src/features/panorama/index.ts`:
 
 ```typescript
 export { PanoramaViewer } from './PanoramaViewer';
-export { PanoramaControls } from './PanoramaControls';
-export { PanoramaHotspot } from './PanoramaHotspot';
-export { HotspotModal } from './HotspotModal';
-export { PanoramaThumbnails } from './PanoramaThumbnails';
+export { HotspotMarker } from './HotspotMarker';
 ```
-
----
-
-## VR Support for Panoramas
-
-For stereo panorama support in VR, the panorama needs to be rendered differently:
-
-```tsx
-// In PanoramaSphere, detect VR and use stereo texture
-function PanoramaSphereVR({ stereoUrl }: { stereoUrl: string }) {
-  // Stereo images are side-by-side (left eye | right eye)
-  // Need to render different halves to each eye
-  // This requires custom shader or two spheres with UV offset
-}
-```
-
-This is advanced and can be implemented as a follow-up task.
 
 ---
 
@@ -681,21 +657,22 @@ This is advanced and can be implemented as a follow-up task.
 
 After completing Phase 7, verify:
 
-- [ ] Panorama loads and displays correctly
-- [ ] Mouse drag rotates view
-- [ ] Scroll wheel zooms (FOV change)
-- [ ] Hotspots are visible at correct positions
-- [ ] Navigation hotspots switch panoramas
-- [ ] Info/media/link hotspots open modal
-- [ ] Thumbnails navigation works
+- [ ] Panorama images load from local filesystem
+- [ ] Click and drag to rotate view
+- [ ] Scroll to zoom in/out
+- [ ] Navigation hotspots appear and are clickable
+- [ ] Clicking navigation hotspot changes panorama
+- [ ] Info hotspots show popup with content
+- [ ] Media hotspots display images/videos
 - [ ] Smooth transitions between panoramas
-- [ ] Works alongside 3D scene viewer in same project
+- [ ] Hotspot editor works (create, move, delete)
 
 ---
 
 ## Next Phase
 
-After Phase 7 is complete, proceed to **Phase 8: Ozone Integration Prep** which covers:
-- Extracting shared types
-- Aligning with Ozone patterns
-- Preparing for monorepo migration
+After Phase 7 is complete, proceed to **Phase 8: Distribution** which covers:
+- Windows installer creation
+- Auto-update system
+- Code signing
+- Release workflow

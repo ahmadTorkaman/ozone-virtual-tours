@@ -1,20 +1,20 @@
 # Phase 4: Material System
 
-> **Estimated Scope**: Material library, editor, and application to scene objects
+> **Scope**: Material library, editor, and application to scene objects
 > **Prerequisites**: Phase 3 complete (scene viewer working)
-> **Outputs**: Full material editing workflow
+> **Outputs**: Full material editing workflow with local storage
 
 ---
 
 ## Overview
 
-This phase implements the material system - a core feature:
+This phase implements the material system for the Tauri desktop app:
 
 1. Material library UI (browse, search, filter)
 2. Material editor (create/edit MeshPhysicalMaterial)
 3. Apply materials to scene objects
-4. Save/load material mappings
-5. Texture upload for material maps
+4. Save/load material mappings to SQLite
+5. Texture import from local filesystem
 6. Material preview (sphere/cube)
 
 ---
@@ -23,10 +23,11 @@ This phase implements the material system - a core feature:
 
 If you're starting a new Claude session to work on this phase:
 
-- **Project**: Ozone Studio - 3D scene viewer for interior designers
+- **Project**: Ozone Studio - 3D scene viewer (Tauri desktop app)
 - **Current State**: Phase 3 complete (scene viewer with object selection)
 - **Working Directory**: `C:/Users/Lion/ozone-virtual-tours`
 - **Focus**: Building the material library and editor
+- **Storage**: Local SQLite database via Tauri commands
 
 The material system uses **MeshPhysicalMaterial** with all properties:
 - Core: color, metalness, roughness, opacity
@@ -39,7 +40,502 @@ Read `/docs/ARCHITECTURE.md` for full context.
 
 ## Task Checklist
 
-### 4.1 Create Material Store
+### 4.1 Rust Material Commands
+
+Add to `src-tauri/src/commands/materials.rs`:
+
+```rust
+use crate::db::Database;
+use crate::models::{Material, MaterialCategory, MaterialMapping, CreateMaterial, UpdateMaterial};
+use tauri::State;
+use std::sync::Mutex;
+
+// ============================================
+// MATERIALS CRUD
+// ============================================
+
+#[tauri::command]
+pub fn list_materials(db: State<Mutex<Database>>) -> Result<Vec<Material>, String> {
+    let db = db.lock().map_err(|e| e.to_string())?;
+    db.list_materials().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_material(id: &str, db: State<Mutex<Database>>) -> Result<Material, String> {
+    let db = db.lock().map_err(|e| e.to_string())?;
+    db.get_material(id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_material(data: CreateMaterial, db: State<Mutex<Database>>) -> Result<Material, String> {
+    let db = db.lock().map_err(|e| e.to_string())?;
+    db.create_material(data).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_material(id: &str, data: UpdateMaterial, db: State<Mutex<Database>>) -> Result<Material, String> {
+    let db = db.lock().map_err(|e| e.to_string())?;
+    db.update_material(id, data).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_material(id: &str, db: State<Mutex<Database>>) -> Result<(), String> {
+    let db = db.lock().map_err(|e| e.to_string())?;
+    db.delete_material(id).map_err(|e| e.to_string())
+}
+
+// ============================================
+// CATEGORIES
+// ============================================
+
+#[tauri::command]
+pub fn list_material_categories(db: State<Mutex<Database>>) -> Result<Vec<MaterialCategory>, String> {
+    let db = db.lock().map_err(|e| e.to_string())?;
+    db.list_material_categories().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_material_category(name: &str, db: State<Mutex<Database>>) -> Result<MaterialCategory, String> {
+    let db = db.lock().map_err(|e| e.to_string())?;
+    db.create_material_category(name).map_err(|e| e.to_string())
+}
+
+// ============================================
+// MATERIAL MAPPINGS (Scene -> Object -> Material)
+// ============================================
+
+#[tauri::command]
+pub fn get_scene_material_mappings(scene_id: &str, db: State<Mutex<Database>>) -> Result<Vec<MaterialMapping>, String> {
+    let db = db.lock().map_err(|e| e.to_string())?;
+    db.get_material_mappings(scene_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_material_mapping(
+    scene_id: &str,
+    object_name: &str,
+    material_id: &str,
+    db: State<Mutex<Database>>
+) -> Result<MaterialMapping, String> {
+    let db = db.lock().map_err(|e| e.to_string())?;
+    db.set_material_mapping(scene_id, object_name, material_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn remove_material_mapping(scene_id: &str, object_name: &str, db: State<Mutex<Database>>) -> Result<(), String> {
+    let db = db.lock().map_err(|e| e.to_string())?;
+    db.remove_material_mapping(scene_id, object_name).map_err(|e| e.to_string())
+}
+
+// ============================================
+// TEXTURE FILE IMPORT
+// ============================================
+
+#[tauri::command]
+pub async fn import_texture(
+    source_path: &str,
+    material_id: &str,
+    texture_type: &str, // "map", "normal", "roughness", "metalness", "ao", "emissive"
+    db: State<'_, Mutex<Database>>,
+) -> Result<String, String> {
+    use std::path::Path;
+    use std::fs;
+
+    // Get data path from settings
+    let data_path = {
+        let db = db.lock().map_err(|e| e.to_string())?;
+        db.get_settings().map_err(|e| e.to_string())?.data_path
+    };
+
+    // Create textures directory
+    let textures_dir = Path::new(&data_path).join("materials").join(material_id);
+    fs::create_dir_all(&textures_dir).map_err(|e| e.to_string())?;
+
+    // Get file extension from source
+    let source = Path::new(source_path);
+    let extension = source.extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("png");
+
+    // Create destination filename
+    let dest_filename = format!("{}_{}.{}", material_id, texture_type, extension);
+    let dest_path = textures_dir.join(&dest_filename);
+
+    // Copy file
+    fs::copy(source_path, &dest_path).map_err(|e| e.to_string())?;
+
+    // Return the relative path (for storage in DB)
+    let relative_path = format!("materials/{}/{}", material_id, dest_filename);
+
+    // Update material in database with texture path
+    {
+        let db = db.lock().map_err(|e| e.to_string())?;
+        let mut update = UpdateMaterial::default();
+        match texture_type {
+            "map" => update.map_path = Some(Some(relative_path.clone())),
+            "normal" => update.normal_map_path = Some(Some(relative_path.clone())),
+            "roughness" => update.roughness_map_path = Some(Some(relative_path.clone())),
+            "metalness" => update.metalness_map_path = Some(Some(relative_path.clone())),
+            "ao" => update.ao_map_path = Some(Some(relative_path.clone())),
+            "emissive" => update.emissive_map_path = Some(Some(relative_path.clone())),
+            _ => return Err(format!("Unknown texture type: {}", texture_type)),
+        }
+        db.update_material(material_id, update).map_err(|e| e.to_string())?;
+    }
+
+    Ok(relative_path)
+}
+```
+
+### 4.2 Rust Material Models
+
+Add to `src-tauri/src/models/material.rs`:
+
+```rust
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Material {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub thumbnail_path: Option<String>,
+
+    // Core PBR
+    pub color: Option<String>,
+    pub metalness: f64,
+    pub roughness: f64,
+    pub opacity: f64,
+    pub transparent: bool,
+
+    // Clearcoat
+    pub clearcoat: f64,
+    pub clearcoat_roughness: f64,
+
+    // Sheen
+    pub sheen: f64,
+    pub sheen_roughness: f64,
+    pub sheen_color: Option<String>,
+
+    // Transmission
+    pub transmission: f64,
+    pub thickness: f64,
+    pub ior: f64,
+
+    // Iridescence
+    pub iridescence: f64,
+    pub iridescence_ior: f64,
+
+    // Anisotropy
+    pub anisotropy: f64,
+    pub anisotropy_rotation: f64,
+
+    // Texture paths (relative to data directory)
+    pub map_path: Option<String>,
+    pub normal_map_path: Option<String>,
+    pub roughness_map_path: Option<String>,
+    pub metalness_map_path: Option<String>,
+    pub ao_map_path: Option<String>,
+    pub emissive_map_path: Option<String>,
+
+    // Category
+    pub category_id: Option<String>,
+
+    // Timestamps
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateMaterial {
+    pub name: String,
+    pub description: Option<String>,
+    pub color: Option<String>,
+    pub metalness: Option<f64>,
+    pub roughness: Option<f64>,
+    pub opacity: Option<f64>,
+    pub transparent: Option<bool>,
+    pub clearcoat: Option<f64>,
+    pub clearcoat_roughness: Option<f64>,
+    pub sheen: Option<f64>,
+    pub sheen_roughness: Option<f64>,
+    pub sheen_color: Option<String>,
+    pub transmission: Option<f64>,
+    pub thickness: Option<f64>,
+    pub ior: Option<f64>,
+    pub iridescence: Option<f64>,
+    pub iridescence_ior: Option<f64>,
+    pub anisotropy: Option<f64>,
+    pub anisotropy_rotation: Option<f64>,
+    pub category_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct UpdateMaterial {
+    pub name: Option<String>,
+    pub description: Option<Option<String>>,
+    pub color: Option<Option<String>>,
+    pub metalness: Option<f64>,
+    pub roughness: Option<f64>,
+    pub opacity: Option<f64>,
+    pub transparent: Option<bool>,
+    pub clearcoat: Option<f64>,
+    pub clearcoat_roughness: Option<f64>,
+    pub sheen: Option<f64>,
+    pub sheen_roughness: Option<f64>,
+    pub sheen_color: Option<Option<String>>,
+    pub transmission: Option<f64>,
+    pub thickness: Option<f64>,
+    pub ior: Option<f64>,
+    pub iridescence: Option<f64>,
+    pub iridescence_ior: Option<f64>,
+    pub anisotropy: Option<f64>,
+    pub anisotropy_rotation: Option<f64>,
+    pub category_id: Option<Option<String>>,
+    pub map_path: Option<Option<String>>,
+    pub normal_map_path: Option<Option<String>>,
+    pub roughness_map_path: Option<Option<String>>,
+    pub metalness_map_path: Option<Option<String>>,
+    pub ao_map_path: Option<Option<String>>,
+    pub emissive_map_path: Option<Option<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MaterialCategory {
+    pub id: String,
+    pub name: String,
+    pub order: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MaterialMapping {
+    pub id: String,
+    pub scene_id: String,
+    pub object_name: String,
+    pub material_id: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+```
+
+### 4.3 Create Material Types
+
+Create `client/src/types/material.ts`:
+
+```typescript
+export interface Material {
+  id: string;
+  name: string;
+  description?: string;
+  thumbnailPath?: string;
+
+  // Core
+  color?: string;
+  metalness: number;
+  roughness: number;
+  opacity: number;
+  transparent: boolean;
+
+  // Clearcoat
+  clearcoat: number;
+  clearcoatRoughness: number;
+
+  // Sheen
+  sheen: number;
+  sheenRoughness: number;
+  sheenColor?: string;
+
+  // Transmission
+  transmission: number;
+  thickness: number;
+  ior: number;
+
+  // Iridescence
+  iridescence: number;
+  iridescenceIor: number;
+
+  // Anisotropy
+  anisotropy: number;
+  anisotropyRotation: number;
+
+  // Texture paths (relative to data directory)
+  mapPath?: string;
+  normalMapPath?: string;
+  roughnessMapPath?: string;
+  metalnessMapPath?: string;
+  aoMapPath?: string;
+  emissiveMapPath?: string;
+
+  // Category
+  categoryId?: string;
+
+  // Meta
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateMaterial {
+  name: string;
+  description?: string;
+  color?: string;
+  metalness?: number;
+  roughness?: number;
+  opacity?: number;
+  transparent?: boolean;
+  clearcoat?: number;
+  clearcoatRoughness?: number;
+  sheen?: number;
+  sheenRoughness?: number;
+  sheenColor?: string;
+  transmission?: number;
+  thickness?: number;
+  ior?: number;
+  iridescence?: number;
+  iridescenceIor?: number;
+  anisotropy?: number;
+  anisotropyRotation?: number;
+  categoryId?: string;
+}
+
+export interface MaterialCategory {
+  id: string;
+  name: string;
+  order: number;
+}
+
+export interface MaterialMapping {
+  id: string;
+  sceneId: string;
+  objectName: string;
+  materialId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Default values for new material
+export function getDefaultMaterial(): Partial<Material> {
+  return {
+    name: 'New Material',
+    color: '#ffffff',
+    metalness: 0,
+    roughness: 1,
+    opacity: 1,
+    transparent: false,
+    clearcoat: 0,
+    clearcoatRoughness: 0,
+    sheen: 0,
+    sheenRoughness: 1,
+    sheenColor: '#ffffff',
+    transmission: 0,
+    thickness: 0,
+    ior: 1.5,
+    iridescence: 0,
+    iridescenceIor: 1.3,
+    anisotropy: 0,
+    anisotropyRotation: 0,
+  };
+}
+```
+
+### 4.4 Create Tauri Material Service
+
+Create `client/src/services/materialService.ts`:
+
+```typescript
+import { invoke } from '@tauri-apps/api/core';
+import { open } from '@tauri-apps/plugin-dialog';
+import type { Material, CreateMaterial, MaterialCategory, MaterialMapping } from '@/types/material';
+
+export const materialService = {
+  // ============================================
+  // MATERIALS CRUD
+  // ============================================
+
+  async list(): Promise<Material[]> {
+    return invoke<Material[]>('list_materials');
+  },
+
+  async get(id: string): Promise<Material> {
+    return invoke<Material>('get_material', { id });
+  },
+
+  async create(data: CreateMaterial): Promise<Material> {
+    return invoke<Material>('create_material', { data });
+  },
+
+  async update(id: string, data: Partial<Material>): Promise<Material> {
+    return invoke<Material>('update_material', { id, data });
+  },
+
+  async delete(id: string): Promise<void> {
+    return invoke('delete_material', { id });
+  },
+
+  // ============================================
+  // CATEGORIES
+  // ============================================
+
+  async listCategories(): Promise<MaterialCategory[]> {
+    return invoke<MaterialCategory[]>('list_material_categories');
+  },
+
+  async createCategory(name: string): Promise<MaterialCategory> {
+    return invoke<MaterialCategory>('create_material_category', { name });
+  },
+
+  // ============================================
+  // MATERIAL MAPPINGS
+  // ============================================
+
+  async getMappings(sceneId: string): Promise<MaterialMapping[]> {
+    return invoke<MaterialMapping[]>('get_scene_material_mappings', { sceneId });
+  },
+
+  async setMapping(sceneId: string, objectName: string, materialId: string): Promise<MaterialMapping> {
+    return invoke<MaterialMapping>('set_material_mapping', { sceneId, objectName, materialId });
+  },
+
+  async removeMapping(sceneId: string, objectName: string): Promise<void> {
+    return invoke('remove_material_mapping', { sceneId, objectName });
+  },
+
+  // ============================================
+  // TEXTURE IMPORT
+  // ============================================
+
+  /**
+   * Open a file dialog to select a texture file and import it.
+   */
+  async importTexture(
+    materialId: string,
+    textureType: 'map' | 'normal' | 'roughness' | 'metalness' | 'ao' | 'emissive'
+  ): Promise<string | null> {
+    // Open file picker
+    const selected = await open({
+      multiple: false,
+      filters: [
+        {
+          name: 'Images',
+          extensions: ['png', 'jpg', 'jpeg', 'webp', 'tga', 'exr'],
+        },
+      ],
+    });
+
+    if (!selected) return null;
+
+    // Import the texture
+    const relativePath = await invoke<string>('import_texture', {
+      sourcePath: selected,
+      materialId,
+      textureType,
+    });
+
+    return relativePath;
+  },
+};
+```
+
+### 4.5 Create Material Store
 
 Create `client/src/stores/materialStore.ts`:
 
@@ -47,6 +543,7 @@ Create `client/src/stores/materialStore.ts`:
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import type { Material, MaterialCategory } from '@/types/material';
+import { getDefaultMaterial } from '@/types/material';
 
 interface MaterialState {
   // Library
@@ -85,6 +582,7 @@ interface MaterialState {
 
   // Computed
   getFilteredMaterials: () => Material[];
+  getMaterialById: (id: string) => Material | undefined;
 }
 
 const initialState = {
@@ -176,181 +674,25 @@ export const useMaterialStore = create<MaterialState>()(
           return true;
         });
       },
+
+      getMaterialById: (id) => {
+        return get().materials.find((m) => m.id === id);
+      },
     }),
     { name: 'material-store' }
   )
 );
-
-function getDefaultMaterial(): Partial<Material> {
-  return {
-    name: 'New Material',
-    type: 'PHYSICAL',
-    color: '#ffffff',
-    metalness: 0,
-    roughness: 1,
-    opacity: 1,
-    transparent: false,
-    clearcoat: 0,
-    clearcoatRoughness: 0,
-    sheen: 0,
-    sheenRoughness: 1,
-    sheenColor: '#ffffff',
-    transmission: 0,
-    thickness: 0,
-    ior: 1.5,
-    iridescence: 0,
-    iridescenceIOR: 1.3,
-    anisotropy: 0,
-    anisotropyRotation: 0,
-  };
-}
 ```
 
-### 4.2 Create Material Types
-
-Create `client/src/types/material.ts`:
-
-```typescript
-export type MaterialType = 'BASIC' | 'STANDARD' | 'PHYSICAL';
-
-export interface Material {
-  id: string;
-  name: string;
-  description?: string;
-  thumbnail?: string;
-  type: MaterialType;
-
-  // Core
-  color?: string;
-  metalness: number;
-  roughness: number;
-  opacity: number;
-  transparent: boolean;
-
-  // Clearcoat
-  clearcoat: number;
-  clearcoatRoughness: number;
-
-  // Sheen
-  sheen: number;
-  sheenRoughness: number;
-  sheenColor?: string;
-
-  // Transmission
-  transmission: number;
-  thickness: number;
-  ior: number;
-
-  // Iridescence
-  iridescence: number;
-  iridescenceIOR: number;
-
-  // Anisotropy
-  anisotropy: number;
-  anisotropyRotation: number;
-
-  // Textures
-  mapUrl?: string;
-  normalMapUrl?: string;
-  roughnessMapUrl?: string;
-  metalnessMapUrl?: string;
-  aoMapUrl?: string;
-  emissiveMapUrl?: string;
-
-  // Category
-  categoryId?: string;
-
-  // Meta
-  userId: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface MaterialCategory {
-  id: string;
-  name: string;
-  order: number;
-}
-
-export interface MaterialMapping {
-  id: string;
-  sceneId: string;
-  materialId: string;
-  objectName: string;
-  material?: Material;
-}
-```
-
-### 4.3 Create Material API Service
-
-Create `client/src/services/materialApi.ts`:
-
-```typescript
-import { api } from './api';
-import type { Material, MaterialCategory, MaterialMapping } from '@/types/material';
-
-export const materialApi = {
-  // Materials
-  async list(): Promise<Material[]> {
-    const response = await api.get('/api/materials');
-    return response.data;
-  },
-
-  async get(id: string): Promise<Material> {
-    const response = await api.get(`/api/materials/${id}`);
-    return response.data;
-  },
-
-  async create(data: Omit<Material, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<Material> {
-    const response = await api.post('/api/materials', data);
-    return response.data;
-  },
-
-  async update(id: string, data: Partial<Material>): Promise<Material> {
-    const response = await api.patch(`/api/materials/${id}`, data);
-    return response.data;
-  },
-
-  async delete(id: string): Promise<void> {
-    await api.delete(`/api/materials/${id}`);
-  },
-
-  // Categories
-  async listCategories(): Promise<MaterialCategory[]> {
-    const response = await api.get('/api/materials/categories');
-    return response.data;
-  },
-
-  // Mappings
-  async getMappings(sceneId: string): Promise<MaterialMapping[]> {
-    const response = await api.get(`/api/scenes/${sceneId}/materials`);
-    return response.data;
-  },
-
-  async setMapping(sceneId: string, objectName: string, materialId: string): Promise<MaterialMapping> {
-    const response = await api.post(`/api/scenes/${sceneId}/materials`, {
-      objectName,
-      materialId,
-    });
-    return response.data;
-  },
-
-  async removeMapping(sceneId: string, objectName: string): Promise<void> {
-    await api.delete(`/api/scenes/${sceneId}/materials/${encodeURIComponent(objectName)}`);
-  },
-};
-```
-
-### 4.4 Create Material Library Component
+### 4.6 Create Material Library Component
 
 Create `client/src/features/materials/MaterialLibrary.tsx`:
 
 ```tsx
 import { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Search, Plus, Grid, List } from 'lucide-react';
+import { Search, Plus } from 'lucide-react';
 import { useMaterialStore } from '@/stores/materialStore';
-import { materialApi } from '@/services/materialApi';
+import { materialService } from '@/services/materialService';
 import { MaterialCard } from './MaterialCard';
 import { MaterialEditor } from './MaterialEditor';
 
@@ -364,35 +706,36 @@ export function MaterialLibrary({ onSelect, selectedMaterialId }: MaterialLibrar
     categories,
     searchQuery,
     selectedCategoryId,
+    isLoading,
     isEditorOpen,
     setMaterials,
     setCategories,
     setSearchQuery,
     setSelectedCategory,
+    setLoading,
     openEditor,
     getFilteredMaterials,
   } = useMaterialStore();
 
-  // Fetch materials
-  const { data: materials, isLoading } = useQuery({
-    queryKey: ['materials'],
-    queryFn: materialApi.list,
-  });
-
-  // Fetch categories
-  const { data: categoriesData } = useQuery({
-    queryKey: ['material-categories'],
-    queryFn: materialApi.listCategories,
-  });
-
-  // Sync to store
+  // Load materials and categories on mount
   useEffect(() => {
-    if (materials) setMaterials(materials);
-  }, [materials, setMaterials]);
-
-  useEffect(() => {
-    if (categoriesData) setCategories(categoriesData);
-  }, [categoriesData, setCategories]);
+    async function loadData() {
+      setLoading(true);
+      try {
+        const [materials, cats] = await Promise.all([
+          materialService.list(),
+          materialService.listCategories(),
+        ]);
+        setMaterials(materials);
+        setCategories(cats);
+      } catch (error) {
+        console.error('Failed to load materials:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, [setMaterials, setCategories, setLoading]);
 
   const filteredMaterials = getFilteredMaterials();
 
@@ -499,6 +842,8 @@ Create `client/src/features/materials/MaterialCard.tsx`:
 import { Pencil } from 'lucide-react';
 import type { Material } from '@/types/material';
 import { MaterialPreview } from './MaterialPreview';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { getAssetUrl } from '@/lib/tauri-file';
 
 interface MaterialCardProps {
   material: Material;
@@ -508,6 +853,13 @@ interface MaterialCardProps {
 }
 
 export function MaterialCard({ material, isSelected, onClick, onEdit }: MaterialCardProps) {
+  const dataPath = useSettingsStore((s) => s.settings?.dataPath);
+
+  // Get thumbnail URL if exists
+  const thumbnailUrl = material.thumbnailPath && dataPath
+    ? getAssetUrl(`${dataPath}/${material.thumbnailPath}`)
+    : null;
+
   return (
     <div
       className={`relative group rounded-lg overflow-hidden cursor-pointer transition-all ${
@@ -519,9 +871,9 @@ export function MaterialCard({ material, isSelected, onClick, onEdit }: Material
     >
       {/* Preview */}
       <div className="aspect-square">
-        {material.thumbnail ? (
+        {thumbnailUrl ? (
           <img
-            src={material.thumbnail}
+            src={thumbnailUrl}
             alt={material.name}
             className="w-full h-full object-cover"
           />
@@ -534,9 +886,10 @@ export function MaterialCard({ material, isSelected, onClick, onEdit }: Material
       <div className="p-2">
         <p className="text-white text-sm font-medium truncate">{material.name}</p>
         <p className="text-gray-400 text-xs truncate">
-          {material.type}
-          {material.metalness > 0.5 && ' • Metallic'}
-          {material.transmission > 0 && ' • Glass'}
+          {material.metalness > 0.5 && 'Metallic'}
+          {material.metalness > 0.5 && material.transmission > 0 && ' • '}
+          {material.transmission > 0 && 'Glass'}
+          {material.metalness <= 0.5 && material.transmission === 0 && 'Standard'}
         </p>
       </div>
 
@@ -560,7 +913,7 @@ export function MaterialCard({ material, isSelected, onClick, onEdit }: Material
 }
 ```
 
-### 4.5 Create Material Preview Component
+### 4.7 Create Material Preview Component
 
 Create `client/src/features/materials/MaterialPreview.tsx`:
 
@@ -622,7 +975,7 @@ function PreviewContent({ material, shape, rotate }: PreviewContentProps) {
       thickness: material.thickness ?? 0,
       ior: material.ior ?? 1.5,
       iridescence: material.iridescence ?? 0,
-      iridescenceIOR: material.iridescenceIOR ?? 1.3,
+      iridescenceIOR: material.iridescenceIor ?? 1.3,
       anisotropy: material.anisotropy ?? 0,
       anisotropyRotation: material.anisotropyRotation ?? 0,
     });
@@ -660,62 +1013,90 @@ function PreviewContent({ material, shape, rotate }: PreviewContentProps) {
 }
 ```
 
-### 4.6 Create Material Editor Component
+### 4.8 Create Material Editor Component
 
 Create `client/src/features/materials/MaterialEditor.tsx`:
 
 ```tsx
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, Save, Trash2 } from 'lucide-react';
 import { useMaterialStore } from '@/stores/materialStore';
-import { materialApi } from '@/services/materialApi';
+import { materialService } from '@/services/materialService';
 import { MaterialPreview } from './MaterialPreview';
 import { PropertySlider } from './PropertySlider';
 import { ColorPicker } from './ColorPicker';
 import { TextureUpload } from './TextureUpload';
+import type { Material } from '@/types/material';
 
 export function MaterialEditor() {
-  const queryClient = useQueryClient();
   const {
     editingMaterial,
     isSaving,
     closeEditor,
     updateEditingMaterial,
     setSaving,
+    addMaterial,
+    updateMaterial,
+    removeMaterial,
   } = useMaterialStore();
 
   const [activeTab, setActiveTab] = useState<'basic' | 'advanced' | 'textures'>('basic');
 
-  // Save mutation
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (!editingMaterial) return;
-      setSaving(true);
+  const handleSave = async () => {
+    if (!editingMaterial || !editingMaterial.name) return;
 
+    setSaving(true);
+    try {
       if (editingMaterial.id) {
-        return materialApi.update(editingMaterial.id, editingMaterial);
+        // Update existing
+        const updated = await materialService.update(editingMaterial.id, editingMaterial);
+        updateMaterial(editingMaterial.id, updated);
       } else {
-        return materialApi.create(editingMaterial as any);
+        // Create new
+        const created = await materialService.create({
+          name: editingMaterial.name,
+          description: editingMaterial.description,
+          color: editingMaterial.color,
+          metalness: editingMaterial.metalness,
+          roughness: editingMaterial.roughness,
+          opacity: editingMaterial.opacity,
+          transparent: editingMaterial.transparent,
+          clearcoat: editingMaterial.clearcoat,
+          clearcoatRoughness: editingMaterial.clearcoatRoughness,
+          sheen: editingMaterial.sheen,
+          sheenRoughness: editingMaterial.sheenRoughness,
+          sheenColor: editingMaterial.sheenColor,
+          transmission: editingMaterial.transmission,
+          thickness: editingMaterial.thickness,
+          ior: editingMaterial.ior,
+          iridescence: editingMaterial.iridescence,
+          iridescenceIor: editingMaterial.iridescenceIor,
+          anisotropy: editingMaterial.anisotropy,
+          anisotropyRotation: editingMaterial.anisotropyRotation,
+          categoryId: editingMaterial.categoryId,
+        });
+        addMaterial(created);
       }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['materials'] });
       closeEditor();
-    },
-    onSettled: () => {
+    } catch (error) {
+      console.error('Failed to save material:', error);
+    } finally {
       setSaving(false);
-    },
-  });
+    }
+  };
 
-  // Delete mutation
-  const deleteMutation = useMutation({
-    mutationFn: () => materialApi.delete(editingMaterial!.id!),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['materials'] });
+  const handleDelete = async () => {
+    if (!editingMaterial?.id) return;
+    if (!confirm('Delete this material?')) return;
+
+    try {
+      await materialService.delete(editingMaterial.id);
+      removeMaterial(editingMaterial.id);
       closeEditor();
-    },
-  });
+    } catch (error) {
+      console.error('Failed to delete material:', error);
+    }
+  };
 
   if (!editingMaterial) return null;
 
@@ -805,11 +1186,7 @@ export function MaterialEditor() {
           <div>
             {!isNew && (
               <button
-                onClick={() => {
-                  if (confirm('Delete this material?')) {
-                    deleteMutation.mutate();
-                  }
-                }}
+                onClick={handleDelete}
                 className="flex items-center gap-2 text-red-400 hover:text-red-300"
               >
                 <Trash2 size={18} />
@@ -826,7 +1203,7 @@ export function MaterialEditor() {
               Cancel
             </button>
             <button
-              onClick={() => saveMutation.mutate()}
+              onClick={handleSave}
               disabled={isSaving || !editingMaterial.name}
               className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-600 text-white px-4 py-2 rounded"
             >
@@ -996,11 +1373,11 @@ function AdvancedProperties({
           />
           <PropertySlider
             label="Iridescence IOR"
-            value={material.iridescenceIOR ?? 1.3}
+            value={material.iridescenceIor ?? 1.3}
             min={1}
             max={2.5}
             step={0.01}
-            onChange={(iridescenceIOR) => onChange({ iridescenceIOR })}
+            onChange={(iridescenceIor) => onChange({ iridescenceIor })}
           />
         </div>
       </div>
@@ -1039,47 +1416,65 @@ function TextureProperties({
   material: Partial<Material>;
   onChange: (updates: Partial<Material>) => void;
 }) {
+  const handleImport = async (
+    textureType: 'map' | 'normal' | 'roughness' | 'metalness' | 'ao' | 'emissive'
+  ) => {
+    if (!material.id) {
+      alert('Please save the material first before adding textures.');
+      return;
+    }
+
+    const path = await materialService.importTexture(material.id, textureType);
+    if (path) {
+      const updateKey = `${textureType}Path` as keyof Material;
+      onChange({ [updateKey]: path });
+    }
+  };
+
   return (
     <div className="grid grid-cols-2 gap-4">
       <TextureUpload
         label="Albedo Map"
-        value={material.mapUrl}
-        onChange={(mapUrl) => onChange({ mapUrl })}
+        value={material.mapPath}
+        onImport={() => handleImport('map')}
+        onClear={() => onChange({ mapPath: undefined })}
       />
       <TextureUpload
         label="Normal Map"
-        value={material.normalMapUrl}
-        onChange={(normalMapUrl) => onChange({ normalMapUrl })}
+        value={material.normalMapPath}
+        onImport={() => handleImport('normal')}
+        onClear={() => onChange({ normalMapPath: undefined })}
       />
       <TextureUpload
         label="Roughness Map"
-        value={material.roughnessMapUrl}
-        onChange={(roughnessMapUrl) => onChange({ roughnessMapUrl })}
+        value={material.roughnessMapPath}
+        onImport={() => handleImport('roughness')}
+        onClear={() => onChange({ roughnessMapPath: undefined })}
       />
       <TextureUpload
         label="Metalness Map"
-        value={material.metalnessMapUrl}
-        onChange={(metalnessMapUrl) => onChange({ metalnessMapUrl })}
+        value={material.metalnessMapPath}
+        onImport={() => handleImport('metalness')}
+        onClear={() => onChange({ metalnessMapPath: undefined })}
       />
       <TextureUpload
         label="AO Map"
-        value={material.aoMapUrl}
-        onChange={(aoMapUrl) => onChange({ aoMapUrl })}
+        value={material.aoMapPath}
+        onImport={() => handleImport('ao')}
+        onClear={() => onChange({ aoMapPath: undefined })}
       />
       <TextureUpload
         label="Emissive Map"
-        value={material.emissiveMapUrl}
-        onChange={(emissiveMapUrl) => onChange({ emissiveMapUrl })}
+        value={material.emissiveMapPath}
+        onImport={() => handleImport('emissive')}
+        onClear={() => onChange({ emissiveMapPath: undefined })}
       />
     </div>
   );
 }
-
-// Import Material type
-import type { Material } from '@/types/material';
 ```
 
-### 4.7 Create Helper Components
+### 4.9 Create Helper Components
 
 Create `client/src/features/materials/PropertySlider.tsx`:
 
@@ -1188,45 +1583,38 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
 Create `client/src/features/materials/TextureUpload.tsx`:
 
 ```tsx
-import { useState, useRef } from 'react';
-import { Upload, X, Image } from 'lucide-react';
+import { Upload, X } from 'lucide-react';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { getAssetUrl } from '@/lib/tauri-file';
 
 interface TextureUploadProps {
   label: string;
   value?: string;
-  onChange: (url: string | undefined) => void;
+  onImport: () => void;
+  onClear: () => void;
 }
 
-export function TextureUpload({ label, value, onChange }: TextureUploadProps) {
-  const [isUploading, setIsUploading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+export function TextureUpload({ label, value, onImport, onClear }: TextureUploadProps) {
+  const dataPath = useSettingsStore((s) => s.settings?.dataPath);
 
-  const handleUpload = async (file: File) => {
-    setIsUploading(true);
-
-    try {
-      // TODO: Implement actual upload using chunked upload for large textures
-      // For now, create a local object URL
-      const url = URL.createObjectURL(file);
-      onChange(url);
-    } finally {
-      setIsUploading(false);
-    }
-  };
+  // Get texture URL if exists
+  const textureUrl = value && dataPath
+    ? getAssetUrl(`${dataPath}/${value}`)
+    : null;
 
   return (
     <div>
       <label className="block text-sm text-gray-400 mb-2">{label}</label>
 
-      {value ? (
+      {textureUrl ? (
         <div className="relative group">
           <img
-            src={value}
+            src={textureUrl}
             alt={label}
             className="w-full h-24 object-cover rounded bg-gray-700"
           />
           <button
-            onClick={() => onChange(undefined)}
+            onClick={onClear}
             className="absolute top-1 right-1 p-1 bg-red-500 rounded opacity-0 group-hover:opacity-100 transition-opacity"
           >
             <X size={14} className="text-white" />
@@ -1234,37 +1622,19 @@ export function TextureUpload({ label, value, onChange }: TextureUploadProps) {
         </div>
       ) : (
         <button
-          onClick={() => inputRef.current?.click()}
-          disabled={isUploading}
+          onClick={onImport}
           className="w-full h-24 border-2 border-dashed border-gray-600 rounded flex flex-col items-center justify-center text-gray-400 hover:border-gray-500 hover:text-gray-300 transition-colors"
         >
-          {isUploading ? (
-            <div className="animate-spin w-6 h-6 border-2 border-gray-400 border-t-transparent rounded-full" />
-          ) : (
-            <>
-              <Upload size={24} />
-              <span className="text-xs mt-1">Upload</span>
-            </>
-          )}
+          <Upload size={24} />
+          <span className="text-xs mt-1">Import</span>
         </button>
       )}
-
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) handleUpload(file);
-        }}
-      />
     </div>
   );
 }
 ```
 
-### 4.8 Export Materials Feature
+### 4.10 Export Materials Feature
 
 Create `client/src/features/materials/index.ts`:
 
@@ -1282,17 +1652,32 @@ export { TextureUpload } from './TextureUpload';
 
 ## Integration with Scene Viewer
 
-Update the scene viewer to include material application. See Phase 3 document for the base SceneViewer component, then add:
+Add material application to the scene editor page:
 
 ```tsx
-// In SceneViewer, add material panel toggle and material application logic
-const handleApplyMaterial = async (objectName: string, materialId: string) => {
+// In SceneEditor.tsx, add material panel and application logic
+import { MaterialLibrary } from '@/features/materials';
+import { createPhysicalMaterial, applyMaterialToMesh } from '@/engine/MaterialSystem';
+import { materialService } from '@/services/materialService';
+
+// Handle applying a material to the selected object
+const handleApplyMaterial = async (materialId: string) => {
+  const objectName = selectedObjectName;
+  if (!objectName || !sceneId) return;
+
   // 1. Get material from store
-  const material = useMaterialStore.getState().materials.find(m => m.id === materialId);
+  const material = useMaterialStore.getState().getMaterialById(materialId);
   if (!material) return;
 
   // 2. Create Three.js material
-  const threeMaterial = await createPhysicalMaterial(material);
+  const threeMaterial = await createPhysicalMaterial({
+    color: material.color,
+    metalness: material.metalness,
+    roughness: material.roughness,
+    // ... other properties
+    mapPath: material.mapPath ? `${dataPath}/${material.mapPath}` : undefined,
+    // ... other texture paths
+  });
 
   // 3. Apply to mesh
   const mesh = sceneData?.meshes.get(objectName);
@@ -1300,8 +1685,8 @@ const handleApplyMaterial = async (objectName: string, materialId: string) => {
     applyMaterialToMesh(mesh, threeMaterial);
   }
 
-  // 4. Save mapping to backend
-  await materialApi.setMapping(sceneId, objectName, materialId);
+  // 4. Save mapping to database
+  await materialService.setMapping(sceneId, objectName, materialId);
 
   // 5. Update local store
   useSceneStore.getState().setMaterialMapping(objectName, materialId);
@@ -1314,15 +1699,16 @@ const handleApplyMaterial = async (objectName: string, materialId: string) => {
 
 After completing Phase 4, verify:
 
-- [ ] Material library displays materials
+- [ ] Material library loads from SQLite database
 - [ ] Search and category filters work
 - [ ] Material editor opens for new/edit
 - [ ] All material properties can be adjusted
 - [ ] Preview updates in real-time
-- [ ] Materials can be saved to database
+- [ ] Materials save to local database
+- [ ] Textures can be imported from local filesystem
+- [ ] Textures display correctly via asset:// protocol
 - [ ] Materials can be applied to scene objects
 - [ ] Material mappings persist after reload
-- [ ] Textures can be uploaded
 
 ---
 
