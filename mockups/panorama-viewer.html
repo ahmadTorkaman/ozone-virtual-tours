@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ozone Studio - Panorama Viewer</title>
+  <style>
+    :root {
+      --bg-base: #101014;
+      --bg-surface: #16161a;
+      --bg-raised: #1c1c22;
+      --bg-overlay: #222228;
+      --bg-hover: #2a2a32;
+      --bg-active: #32323c;
+
+      --border-default: #2a2a32;
+      --border-subtle: #222228;
+      --border-focus: #6366f1;
+
+      --text-primary: #ececf0;
+      --text-secondary: #8b8b97;
+      --text-tertiary: #5c5c66;
+      --text-on-accent: #ffffff;
+
+      --accent: #6366f1;
+      --accent-hover: #7577f5;
+      --accent-muted: rgba(99, 102, 241, 0.12);
+
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --error: #ef4444;
+
+      --pano-color: #22c55e;
+      --pano-muted: rgba(34, 197, 94, 0.12);
+
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --text-xs: 11px;
+      --text-sm: 12px;
+      --text-base: 13px;
+      --text-lg: 14px;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font);
+      font-size: var(--text-base);
+      color: var(--text-primary);
+      background: #000;
+      -webkit-font-smoothing: antialiased;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ========================================
+       FULLSCREEN IMMERSIVE LAYOUT
+       No sidebar — max viewport for the panorama
+       ======================================== */
+    .viewer {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Panorama canvas (simulated) */
+    .pano-canvas {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 30% 40%, #1a2535 0%, transparent 50%),
+        radial-gradient(ellipse at 70% 60%, #251a20 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 50%, #181820 0%, #0a0a10 100%);
+    }
+
+    /* Fake horizon / room hint */
+    .pano-canvas::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 45%;
+      background: linear-gradient(180deg, transparent 0%, rgba(15, 12, 10, 0.4) 100%);
+    }
+
+    /* ========================================
+       TOP BAR - Floating, glass effect
+       ======================================== */
+    .top-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 100%);
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .top-bar > * { pointer-events: auto; }
+
+    .top-bar-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .top-bar-center {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .top-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Glass button */
+    .glass-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius-sm);
+      color: rgba(255,255,255,0.7);
+      font-size: var(--text-sm);
+      font-family: var(--font);
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .glass-btn:hover {
+      background: rgba(255,255,255,0.14);
+      color: rgba(255,255,255,0.9);
+    }
+    .glass-btn.icon-only { padding: 6px; width: 32px; height: 32px; }
+
+    .glass-btn.active {
+      background: rgba(99, 102, 241, 0.25);
+      border-color: rgba(99, 102, 241, 0.3);
+      color: #a5a7fc;
+    }
+
+    /* Panorama title */
+    .pano-title {
+      font-size: var(--text-lg);
+      font-weight: 500;
+      color: rgba(255,255,255,0.9);
+    }
+
+    .pano-counter {
+      font-size: var(--text-xs);
+      color: rgba(255,255,255,0.4);
+    }
+
+    /* ========================================
+       HOTSPOTS
+       ======================================== */
+    .hotspot {
+      position: absolute;
+      z-index: 5;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .hotspot:hover { transform: scale(1.15); }
+
+    /* Navigation hotspot */
+    .hotspot-nav {
+      width: 40px;
+      height: 40px;
+    }
+
+    .hotspot-nav-ring {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.5);
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      animation: hotspot-pulse 2s ease-in-out infinite;
+    }
+
+    .hotspot:hover .hotspot-nav-ring {
+      border-color: rgba(255,255,255,0.8);
+      background: rgba(255,255,255,0.2);
+    }
+
+    @keyframes hotspot-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.15); }
+      50% { box-shadow: 0 0 0 8px rgba(255,255,255,0); }
+    }
+
+    .hotspot-label {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      font-size: 10px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.8);
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(8px);
+      padding: 3px 8px;
+      border-radius: 4px;
+      opacity: 0;
+      transition: opacity 0.15s;
+      pointer-events: none;
+    }
+    .hotspot:hover .hotspot-label { opacity: 1; }
+
+    /* Info hotspot */
+    .hotspot-info-ring {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 2px solid rgba(99, 102, 241, 0.6);
+      background: rgba(99, 102, 241, 0.15);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      animation: hotspot-pulse-info 2s ease-in-out infinite;
+    }
+
+    .hotspot:hover .hotspot-info-ring {
+      border-color: rgba(99, 102, 241, 0.9);
+      background: rgba(99, 102, 241, 0.25);
+    }
+
+    @keyframes hotspot-pulse-info {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.15); }
+      50% { box-shadow: 0 0 0 8px rgba(99, 102, 241, 0); }
+    }
+
+    /* ========================================
+       PREV / NEXT NAV
+       ======================================== */
+    .nav-arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 8;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.3);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 50%;
+      color: rgba(255,255,255,0.5);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .nav-arrow:hover {
+      background: rgba(0,0,0,0.5);
+      color: rgba(255,255,255,0.9);
+    }
+    .nav-arrow.disabled {
+      opacity: 0.25;
+      cursor: not-allowed;
+    }
+    .nav-arrow-left { left: 16px; }
+    .nav-arrow-right { right: 16px; }
+
+    /* ========================================
+       BOTTOM BAR - Thumbnail strip + controls
+       ======================================== */
+    .bottom-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 16px 14px;
+      background: linear-gradient(0deg, rgba(0,0,0,0.6) 0%, transparent 100%);
+      pointer-events: none;
+    }
+
+    .bottom-bar > * { pointer-events: auto; }
+
+    /* Controls hint */
+    .viewer-hint {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 5px 14px;
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 20px;
+      font-size: 10px;
+      color: rgba(255,255,255,0.4);
+      margin-bottom: 10px;
+    }
+
+    .hint-sep {
+      width: 1px;
+      height: 10px;
+      background: rgba(255,255,255,0.1);
+    }
+
+    /* Thumbnail strip */
+    .thumb-strip {
+      display: flex;
+      gap: 6px;
+      padding: 6px;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: var(--radius-md);
+      max-width: 80vw;
+      overflow-x: auto;
+    }
+
+    .thumb-strip::-webkit-scrollbar { height: 3px; }
+    .thumb-strip::-webkit-scrollbar-track { background: transparent; }
+    .thumb-strip::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+    .thumb-item {
+      flex-shrink: 0;
+      width: 64px;
+      height: 44px;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.15s;
+      position: relative;
+    }
+
+    .thumb-item:hover { border-color: rgba(255,255,255,0.3); }
+
+    .thumb-item.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    .thumb-item-inner {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: rgba(255,255,255,0.4);
+      font-weight: 500;
+    }
+
+    .thumb-item-inner.t1 { background: linear-gradient(135deg, #1a2535, #2a3040); }
+    .thumb-item-inner.t2 { background: linear-gradient(135deg, #2a2520, #3a3530); }
+    .thumb-item-inner.t3 { background: linear-gradient(135deg, #1a2520, #203028); }
+    .thumb-item-inner.t4 { background: linear-gradient(135deg, #252030, #302535); }
+    .thumb-item-inner.t5 { background: linear-gradient(135deg, #2a2820, #353025); }
+    .thumb-item-inner.t6 { background: linear-gradient(135deg, #1a2028, #253035); }
+    .thumb-item-inner.t7 { background: linear-gradient(135deg, #282520, #352e25); }
+    .thumb-item-inner.t8 { background: linear-gradient(135deg, #201a28, #2a2535); }
+
+    .thumb-item-name {
+      position: absolute;
+      bottom: -20px;
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      font-size: 9px;
+      color: rgba(255,255,255,0.5);
+      background: rgba(0,0,0,0.7);
+      padding: 2px 6px;
+      border-radius: 3px;
+      opacity: 0;
+      transition: opacity 0.15s;
+      pointer-events: none;
+    }
+    .thumb-item:hover .thumb-item-name { opacity: 1; }
+
+    /* ========================================
+       INFO PANEL (slide-in from right)
+       Shows when info hotspot is clicked
+       ======================================== */
+    .info-panel {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 340px;
+      background: rgba(16, 16, 20, 0.92);
+      backdrop-filter: blur(20px);
+      border-left: 1px solid rgba(255,255,255,0.06);
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(0);
+      transition: transform 0.25s ease;
+    }
+
+    .info-panel.hidden {
+      transform: translateX(100%);
+    }
+
+    .info-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 18px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      flex-shrink: 0;
+    }
+
+    .info-panel-title {
+      font-size: var(--text-lg);
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .info-panel-close {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      background: transparent;
+      color: var(--text-tertiary);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .info-panel-close:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .info-panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px;
+    }
+
+    .info-panel-body::-webkit-scrollbar { width: 4px; }
+    .info-panel-body::-webkit-scrollbar-track { background: transparent; }
+    .info-panel-body::-webkit-scrollbar-thumb { background: var(--bg-hover); border-radius: 2px; }
+
+    .info-image {
+      width: 100%;
+      height: 160px;
+      border-radius: var(--radius-md);
+      background: var(--bg-raised);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .info-image-placeholder {
+      color: var(--text-tertiary);
+      opacity: 0.3;
+    }
+
+    .info-text {
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+      line-height: 1.7;
+      margin-bottom: 14px;
+    }
+
+    .info-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: var(--text-sm);
+      color: var(--accent);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .info-link:hover { color: var(--accent-hover); }
+
+    /* ========================================
+       EDIT MODE INDICATOR
+       ======================================== */
+    .edit-indicator {
+      position: absolute;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 12;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: rgba(99, 102, 241, 0.2);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 20px;
+      font-size: var(--text-xs);
+      color: #a5a7fc;
+      font-weight: 500;
+      display: none; /* toggle via edit mode */
+    }
+
+    .edit-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: blink 1.5s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* ========================================
+       COMPASS (top-right corner of viewport)
+       ======================================== */
+    .compass {
+      position: absolute;
+      top: 60px;
+      right: 16px;
+      z-index: 8;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.4;
+      transition: opacity 0.2s;
+    }
+    .compass:hover { opacity: 0.7; }
+
+    .compass-ring {
+      width: 44px;
+      height: 44px;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 50%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .compass-n {
+      position: absolute;
+      top: -2px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 8px;
+      font-weight: 700;
+      color: #ef4444;
+    }
+
+    .compass-needle {
+      width: 2px;
+      height: 18px;
+      background: linear-gradient(180deg, #ef4444 50%, rgba(255,255,255,0.3) 50%);
+      border-radius: 1px;
+      transform: rotate(-25deg);
+    }
+
+    /* ========================================
+       ZOOM CONTROLS
+       ======================================== */
+    .zoom-controls {
+      position: absolute;
+      bottom: 90px;
+      right: 16px;
+      z-index: 8;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+
+    .zoom-btn {
+      width: 32px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      background: transparent;
+      color: rgba(255,255,255,0.5);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .zoom-btn:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.9); }
+
+    .zoom-divider {
+      height: 1px;
+      background: rgba(255,255,255,0.06);
+      margin: 0 6px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="viewer">
+
+  <!-- Panorama background -->
+  <div class="pano-canvas"></div>
+
+  <!-- ============ TOP BAR ============ -->
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <button class="glass-btn icon-only" title="Back to project">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 12L6 8l4-4"/></svg>
+      </button>
+      <div>
+        <div class="pano-title">Main Hall</div>
+        <div class="pano-counter">2 of 8</div>
+      </div>
+    </div>
+
+    <div class="top-bar-right">
+      <button class="glass-btn" id="editToggle" onclick="toggleEdit()">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 2l3 3-9 9H2v-3l9-9z"/></svg>
+        Edit
+      </button>
+      <button class="glass-btn icon-only" title="Fullscreen">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ============ HOTSPOTS ============ -->
+  <!-- Navigation hotspot -->
+  <div class="hotspot" style="left: 35%; top: 52%;">
+    <div class="hotspot-nav">
+      <div class="hotspot-nav-ring">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1.5"><path d="M8 12V4M5 7l3-3 3 3"/></svg>
+      </div>
+    </div>
+    <span class="hotspot-label">Meeting Room A</span>
+  </div>
+
+  <!-- Navigation hotspot 2 -->
+  <div class="hotspot" style="left: 62%; top: 58%;">
+    <div class="hotspot-nav">
+      <div class="hotspot-nav-ring">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1.5"><path d="M8 12V4M5 7l3-3 3 3"/></svg>
+      </div>
+    </div>
+    <span class="hotspot-label">Kitchen Area</span>
+  </div>
+
+  <!-- Info hotspot -->
+  <div class="hotspot" style="left: 48%; top: 38%;" onclick="toggleInfoPanel()">
+    <div class="hotspot-nav">
+      <div class="hotspot-info-ring">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="rgba(99,102,241,0.8)" stroke-width="1.5"><circle cx="8" cy="8" r="1"/><path d="M8 11V7"/></svg>
+      </div>
+    </div>
+    <span class="hotspot-label">About This Space</span>
+  </div>
+
+  <!-- Info hotspot 2 -->
+  <div class="hotspot" style="left: 22%; top: 42%;">
+    <div class="hotspot-nav">
+      <div class="hotspot-info-ring">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="rgba(99,102,241,0.8)" stroke-width="1.5"><circle cx="8" cy="8" r="1"/><path d="M8 11V7"/></svg>
+      </div>
+    </div>
+    <span class="hotspot-label">Art Installation</span>
+  </div>
+
+  <!-- Navigation hotspot (floor arrow style) -->
+  <div class="hotspot" style="left: 80%; top: 65%;">
+    <div class="hotspot-nav">
+      <div class="hotspot-nav-ring">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1.5"><path d="M4 8h8M9 5l3 3-3 3"/></svg>
+      </div>
+    </div>
+    <span class="hotspot-label">Lounge</span>
+  </div>
+
+  <!-- ============ NAV ARROWS ============ -->
+  <button class="nav-arrow nav-arrow-left">
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 12L6 8l4-4"/></svg>
+  </button>
+  <button class="nav-arrow nav-arrow-right">
+    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4"/></svg>
+  </button>
+
+  <!-- ============ COMPASS ============ -->
+  <div class="compass">
+    <div class="compass-ring">
+      <span class="compass-n">N</span>
+      <div class="compass-needle"></div>
+    </div>
+  </div>
+
+  <!-- ============ ZOOM CONTROLS ============ -->
+  <div class="zoom-controls">
+    <button class="zoom-btn" title="Zoom in">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 4v8M4 8h8"/></svg>
+    </button>
+    <div class="zoom-divider"></div>
+    <button class="zoom-btn" title="Zoom out">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 8h8"/></svg>
+    </button>
+  </div>
+
+  <!-- ============ BOTTOM BAR ============ -->
+  <div class="bottom-bar">
+    <div class="viewer-hint">
+      <span>Drag to look around</span>
+      <span class="hint-sep"></span>
+      <span>Scroll to zoom</span>
+      <span class="hint-sep"></span>
+      <span>Click hotspots to navigate</span>
+    </div>
+
+    <div class="thumb-strip">
+      <div class="thumb-item">
+        <div class="thumb-item-inner t1">1</div>
+        <span class="thumb-item-name">Reception</span>
+      </div>
+      <div class="thumb-item active">
+        <div class="thumb-item-inner t2">2</div>
+        <span class="thumb-item-name">Main Hall</span>
+      </div>
+      <div class="thumb-item">
+        <div class="thumb-item-inner t3">3</div>
+        <span class="thumb-item-name">Meeting A</span>
+      </div>
+      <div class="thumb-item">
+        <div class="thumb-item-inner t4">4</div>
+        <span class="thumb-item-name">Meeting B</span>
+      </div>
+      <div class="thumb-item">
+        <div class="thumb-item-inner t5">5</div>
+        <span class="thumb-item-name">Kitchen</span>
+      </div>
+      <div class="thumb-item">
+        <div class="thumb-item-inner t6">6</div>
+        <span class="thumb-item-name">Lounge</span>
+      </div>
+      <div class="thumb-item">
+        <div class="thumb-item-inner t7">7</div>
+        <span class="thumb-item-name">Entrance</span>
+      </div>
+      <div class="thumb-item">
+        <div class="thumb-item-inner t8">8</div>
+        <span class="thumb-item-name">Rooftop</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ INFO PANEL (slide-in) ============ -->
+  <div class="info-panel hidden" id="infoPanel">
+    <div class="info-panel-header">
+      <span class="info-panel-title">About This Space</span>
+      <button class="info-panel-close" onclick="toggleInfoPanel()">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+      </button>
+    </div>
+    <div class="info-panel-body">
+      <div class="info-image">
+        <svg class="info-image-placeholder" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+      </div>
+      <p class="info-text">
+        The main hall features a double-height ceiling with natural light from the skylight above. The open floor plan connects seamlessly to the meeting rooms on either side.
+      </p>
+      <p class="info-text">
+        Capacity: 120 people standing, 80 seated. Equipped with integrated AV systems and adjustable ambient lighting.
+      </p>
+      <a class="info-link" href="#">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1v-3M9 2h5v5M6 10L14 2"/></svg>
+        View floor plan
+      </a>
+    </div>
+  </div>
+
+  <!-- Edit mode indicator -->
+  <div class="edit-indicator" id="editIndicator">
+    <span class="edit-dot"></span>
+    Editing Hotspots &mdash; Click to place, drag to move
+  </div>
+
+</div>
+
+<script>
+function toggleInfoPanel() {
+  document.getElementById('infoPanel').classList.toggle('hidden');
+}
+
+function toggleEdit() {
+  const btn = document.getElementById('editToggle');
+  const indicator = document.getElementById('editIndicator');
+  btn.classList.toggle('active');
+  if (btn.classList.contains('active')) {
+    btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 8s3-5 7-5 7 5 7 5-3 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/></svg> View';
+    indicator.style.display = 'flex';
+  } else {
+    btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 2l3 3-9 9H2v-3l9-9z"/></svg> Edit';
+    indicator.style.display = 'none';
+  }
+}
+
+document.querySelectorAll('.thumb-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.thumb-item').forEach(i => i.classList.remove('active'));
+    item.classList.add('active');
+  });
+});
+</script>
+
+</body>
+</html>
