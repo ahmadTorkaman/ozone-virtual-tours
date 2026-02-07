@@ -102,6 +102,18 @@
 - [ ] Preview shape selector (sphere, cube, plane, cylinder, torus)
 - [ ] Environment switcher for material preview
 
+### Material Picking from GLB Files
+- [ ] Detect and extract embedded materials when importing GLB files
+- [ ] List imported materials in Material tab as "Imported from [model]"
+- [ ] Allow saving imported materials to the user's library for reuse
+- [ ] Allow editing imported materials in Material Editor
+
+### UVW Mapping for Materials
+- [ ] Detect UV coordinates on target meshes
+- [ ] Add UV projection modes (box, planar, cylindrical, spherical) for meshes without UVs
+- [ ] Add per-object texture tiling (repeat U/V) and offset controls in Properties panel
+- [ ] Add UV scale/rotation controls for fine-tuning material placement
+
 ---
 
 ## Backend (Tauri/Rust)

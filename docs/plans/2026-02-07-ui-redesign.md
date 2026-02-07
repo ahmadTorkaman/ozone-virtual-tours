@@ -203,3 +203,28 @@ Users can set hotspot views within GLB scenes — saved camera positions and ori
 - Exported as part of the tour for end-user consumption
 
 This bridges the 3D scene and panorama systems — a hotspot in a panorama can teleport the viewer to a specific camera perspective within a GLB scene.
+
+---
+
+## New Feature: Material Picking from GLB Files
+
+When a user imports a GLB file, the app should detect and extract embedded materials from the model. These materials can then be:
+- Listed in the Material tab as "Imported from [model name]"
+- Saved to the user's material library for reuse across projects
+- Edited in the Material Editor (color, roughness, metalness, textures, etc.)
+- Applied to other objects in the same or different scenes
+
+This avoids forcing users to manually recreate materials that already exist in their 3D models.
+
+---
+
+## New Feature: UVW Mapping Solution for Materials
+
+When applying materials from the library to scene objects, the app needs to handle UV mapping properly:
+- Detect whether the target mesh has UV coordinates
+- If UVs exist: apply the material respecting the existing UV layout
+- If UVs are missing or need adjustment: provide UV mapping controls (box/planar/cylindrical/spherical projection)
+- Provide per-object texture tiling (repeat U/V) and offset controls in the Properties panel
+- Support UV scale/rotation for fine-tuning material placement on surfaces
+
+This ensures materials look correct on any geometry, not just the object they were originally designed for.
