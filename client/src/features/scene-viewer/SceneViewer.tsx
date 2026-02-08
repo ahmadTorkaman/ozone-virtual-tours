@@ -1,6 +1,5 @@
 import { Suspense, useEffect, useRef, useState, useCallback } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Stats } from '@react-three/drei';
 import { XR, createXRStore } from '@react-three/xr';
 import * as THREE from 'three';
 import { Glasses, Lock } from 'lucide-react';
@@ -250,12 +249,6 @@ export function SceneViewer({
         </div>
       )}
 
-      {/* Dev stats */}
-      {import.meta.env.DEV && (
-        <div className="absolute top-0 left-0 pointer-events-none">
-          <Stats />
-        </div>
-      )}
     </div>
   );
 }
