@@ -6,34 +6,52 @@ use crate::AppState;
 use crate::db::queries;
 use crate::models::project::{Project, CreateProjectInput, UpdateProjectInput};
 use crate::utils::paths;
+use crate::utils::errors::AppError;
 
+/// List all projects in the database
 #[tauri::command]
 pub fn list_projects(state: State<AppState>) -> Result<Vec<Project>, String> {
-    let conn = state.db.lock().map_err(|e| e.to_string())?;
-    queries::get_all_projects(&conn).map_err(|e| e.to_string())
+    let conn = state.db.lock()
+        .map_err(|e| String::from(AppError::Internal(e.to_string())))?;
+    queries::get_all_projects(&conn)
+        .map_err(|e| String::from(AppError::Database(e)))
 }
 
+/// Get a single project by ID
 #[tauri::command]
 pub fn get_project(id: String, state: State<AppState>) -> Result<Option<Project>, String> {
-    let conn = state.db.lock().map_err(|e| e.to_string())?;
-    queries::get_project(&conn, &id).map_err(|e| e.to_string())
+    let conn = state.db.lock()
+        .map_err(|e| String::from(AppError::Internal(e.to_string())))?;
+    queries::get_project(&conn, &id)
+        .map_err(|e| String::from(AppError::Database(e)))
 }
 
+/// Create a new project with the given name and optional description
 #[tauri::command]
 pub fn create_project(input: CreateProjectInput, state: State<AppState>) -> Result<Project, String> {
-    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    // Validate input
+    if input.name.trim().is_empty() {
+        return Err(String::from(AppError::ValidationError("Project name cannot be empty".to_string())));
+    }
+
+    let conn = state.db.lock()
+        .map_err(|e| String::from(AppError::Internal(e.to_string())))?;
 
     let id = Uuid::new_v4().to_string();
     let now = Utc::now().to_rfc3339();
     let folder_path = id.clone(); // Relative path
 
     // Create project directory
-    let project_dir = paths::get_project_dir(&id).map_err(|e| e.to_string())?;
-    paths::ensure_dir(&project_dir).map_err(|e| e.to_string())?;
+    let project_dir = paths::get_project_dir(&id)
+        .map_err(|e| String::from(AppError::Internal(e.to_string())))?;
+    paths::ensure_dir(&project_dir)
+        .map_err(|e| String::from(AppError::Internal(e.to_string())))?;
 
     // Create scenes and panoramas subdirectories
-    paths::ensure_dir(&project_dir.join("scenes")).map_err(|e| e.to_string())?;
-    paths::ensure_dir(&project_dir.join("panoramas")).map_err(|e| e.to_string())?;
+    paths::ensure_dir(&project_dir.join("scenes"))
+        .map_err(|e| String::from(AppError::Internal(e.to_string())))?;
+    paths::ensure_dir(&project_dir.join("panoramas"))
+        .map_err(|e| String::from(AppError::Internal(e.to_string())))?;
 
     let project = Project {
         id: id.clone(),
@@ -48,28 +66,40 @@ pub fn create_project(input: CreateProjectInput, state: State<AppState>) -> Resu
         sync_enabled: false,
     };
 
-    queries::create_project(&conn, &project).map_err(|e| e.to_string())?;
+    queries::create_project(&conn, &project)
+        .map_err(|e| String::from(AppError::Database(e)))?;
 
     Ok(project)
 }
 
+/// Update an existing project's name and/or description
 #[tauri::command]
 pub fn update_project(id: String, input: UpdateProjectInput, state: State<AppState>) -> Result<(), String> {
-    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    // Validate input
+    if input.name.trim().is_empty() {
+        return Err(String::from(AppError::ValidationError("Project name cannot be empty".to_string())));
+    }
+
+    let conn = state.db.lock()
+        .map_err(|e| String::from(AppError::Internal(e.to_string())))?;
     queries::update_project(&conn, &id, &input.name, input.description.as_deref())
-        .map_err(|e| e.to_string())
+        .map_err(|e| String::from(AppError::Database(e)))
 }
 
+/// Delete a project and all its associated files
 #[tauri::command]
 pub fn delete_project(id: String, state: State<AppState>) -> Result<(), String> {
-    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = state.db.lock()
+        .map_err(|e| String::from(AppError::Internal(e.to_string())))?;
 
     // Delete project directory
     if let Ok(project_dir) = paths::get_project_dir(&id) {
         if project_dir.exists() {
-            std::fs::remove_dir_all(&project_dir).map_err(|e| e.to_string())?;
+            std::fs::remove_dir_all(&project_dir)
+                .map_err(|e| String::from(AppError::Io(e)))?;
         }
     }
 
-    queries::delete_project(&conn, &id).map_err(|e| e.to_string())
+    queries::delete_project(&conn, &id)
+        .map_err(|e| String::from(AppError::Database(e)))
 }

@@ -2,11 +2,11 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Ozone Studio",
   "version": "1.0.0",
-  "identifier": "com.ozone.studio",
+  "identifier": "studio.ozone.app",
   "build": {
-    "beforeDevCommand": "pnpm dev",
+    "beforeDevCommand": "cd client && pnpm dev",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "pnpm build",
+    "beforeBuildCommand": "cd client && pnpm build",
     "frontendDist": "../client/dist"
   },
   "app": {
@@ -23,7 +23,11 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset: https://asset.localhost; connect-src 'self' https:; font-src 'self' data:"
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset: https://asset.localhost; connect-src 'self' https: wss:; font-src 'self' data:; media-src 'self' asset: blob:",
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$DOCUMENT/**", "$APPDATA/**", "$RESOURCE/**"]
+      }
     }
   },
   "bundle": {
@@ -36,15 +40,33 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "category": "Graphics",
+    "shortDescription": "3D Scene Viewer for Interior Designers",
+    "longDescription": "Ozone Studio is a professional 3D scene viewer designed for interior designers. View, edit, and present GLB models with custom materials and VR support.",
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
-      "timestampUrl": ""
+      "timestampUrl": "http://timestamp.digicert.com",
+      "wix": {
+        "language": "en-US",
+        "upgradeCode": "8a7b6c5d-4e3f-2a1b-9c8d-7e6f5a4b3c2d"
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["English"],
+        "displayLanguageSelector": false
+      }
     }
   },
   "plugins": {
     "shell": {
       "open": true
+    },
+    "updater": {
+      "endpoints": [
+        "https://github.com/ozone-studio/ozone-virtual-tours/releases/latest/download/latest.json"
+      ],
+      "pubkey": ""
     }
   }
 }

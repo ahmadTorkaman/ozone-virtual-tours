@@ -1,3 +1,9 @@
+pub mod export;
 pub mod files;
+pub mod license;
+pub mod materials;
+pub mod panoramas;
 pub mod projects;
+pub mod scenes;
 pub mod settings;
+pub mod updater;
