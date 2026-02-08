@@ -1,0 +1,129 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Setup Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: |
+          cd client
+          pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: |
+          cd client
+          pnpm build
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: src-tauri
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Ozone Studio ${{ github.ref_name }}'
+          releaseBody: |
+            ## What's New
+
+            See the [commit history](https://github.com/${{ github.repository }}/commits/${{ github.ref_name }}) for changes.
+
+            ## Installation
+
+            **Windows:**
+            - Download `Ozone-Studio_x64-setup.exe` (NSIS installer - recommended)
+            - Or download `Ozone-Studio_x64_en-US.msi` (MSI installer)
+
+            ## Checksums
+
+            SHA256 checksums for downloaded files are available in `checksums.txt`.
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: true
+
+      - name: Generate checksums
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          $artifacts = @(
+            "src-tauri/target/release/bundle/msi/*.msi",
+            "src-tauri/target/release/bundle/nsis/*.exe"
+          )
+
+          $checksums = @()
+          foreach ($pattern in $artifacts) {
+            $files = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue
+            foreach ($file in $files) {
+              $hash = (Get-FileHash -Path $file.FullName -Algorithm SHA256).Hash
+              $checksums += "$hash  $($file.Name)"
+            }
+          }
+
+          $checksums | Out-File -FilePath "checksums.txt" -Encoding utf8
+          Get-Content "checksums.txt"
+
+      - name: Upload checksums to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: checksums.txt
+          draft: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Create update manifest for auto-updater
+  create-update-manifest:
+    needs: build-windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download release artifacts
+        uses: robinraju/release-downloader@v1.8
+        with:
+          tag: ${{ github.ref_name }}
+          fileName: 'latest.json'
+          out-file-path: 'update-manifest'
+        continue-on-error: true
+
+      - name: Upload update manifest
+        if: success()
+        uses: softprops/action-gh-release@v1
+        with:
+          files: update-manifest/latest.json
+          draft: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
