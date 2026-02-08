@@ -1,66 +1,143 @@
-# Ozone Virtual Tours Module
+# Ozone Studio
 
-A VR-ready virtual tour system for interior design presentations, built as part of the Ozone platform.
+A professional 3D scene viewer and 360° panorama application for interior designers. Built with Tauri for native desktop performance.
 
 ## Features
 
-- 🎯 **360° Panorama Viewer** - Equirectangular image support with smooth navigation
-- 🥽 **VR Support** - WebXR-ready with stereo side-by-side rendering
-- 🔗 **Interactive Hotspots** - Navigation links, info points, and media embeds
-- 🗺️ **Floor Plan Navigation** - Visual mini-map with scene indicators
-- 🎬 **Guided Tours** - Auto-play mode with timed transitions
-- 📱 **Responsive** - Works on desktop, mobile, and VR headsets
-- 🎨 **Ozone Design System** - Consistent with main platform aesthetics
+- **3D Scene Viewer** - Load and navigate GLB/glTF models with first-person controls
+- **Material System** - Full PBR material editor with texture support
+- **360° Panoramas** - Equirectangular image viewer with hotspot navigation
+- **VR Support** - WebXR integration for immersive presentations
+- **License System** - Trial, Professional, and Enterprise tiers
+- **Auto Updates** - Built-in update system via Tauri
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | React 18 + Vite |
-| 3D/VR | A-Frame + Three.js |
-| State | Zustand |
-| Backend | Node.js + Express |
-| Database | PostgreSQL + Prisma |
-| Storage | Cloudflare R2 |
+| Desktop Framework | Tauri 2.0 (Rust) |
+| Frontend | React 18 + TypeScript |
+| 3D Rendering | Three.js + React Three Fiber |
+| State Management | Zustand |
+| Database | SQLite (local) |
+| Build Tool | Vite |
 
-## Getting Started
+## Quick Start
 
-See [QUICKSTART.md](./QUICKSTART.md) for setup instructions.
+### Prerequisites
 
-## Architecture
+- **Node.js** 20+
+- **pnpm** 8+ (`npm install -g pnpm`)
+- **Rust** 1.75+ ([rustup.rs](https://rustup.rs))
+- **Visual Studio Build Tools** 2022 (Windows)
+
+### Development
+
+```bash
+# Clone the repository
+git clone https://github.com/your-org/ozone-virtual-tours.git
+cd ozone-virtual-tours
+
+# Install dependencies
+pnpm install
+cd client && pnpm install
+cd ..
+
+# Start development
+cargo tauri dev
+```
+
+### Building
+
+```bash
+# Production build (creates installers)
+cargo tauri build
+
+# Outputs:
+# - src-tauri/target/release/bundle/msi/   (MSI installer)
+# - src-tauri/target/release/bundle/nsis/  (NSIS installer)
+```
+
+## Project Structure
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     RENDER.COM                               │
-├─────────────────┬─────────────────┬─────────────────────────┤
-│   Web Service   │   PostgreSQL    │   Static Site           │
-│   (Node.js API) │   (Database)    │   (React Frontend)      │
-└────────┬────────┴────────┬────────┴────────┬────────────────┘
-         │                 │                  │
-         └─────────────────┼──────────────────┘
-                           │
-              ┌────────────▼────────────┐
-              │   Cloudflare R2         │
-              │   (Panorama Storage)    │
-              └─────────────────────────┘
+ozone-virtual-tours/
+├── client/                 # React frontend
+│   ├── src/
+│   │   ├── pages/          # Route components
+│   │   ├── features/       # Feature modules
+│   │   ├── stores/         # Zustand state
+│   │   ├── services/       # Tauri API wrappers
+│   │   └── engine/         # 3D rendering
+│   └── package.json
+│
+├── src-tauri/              # Rust backend
+│   ├── src/
+│   │   ├── commands/       # Tauri commands
+│   │   ├── db/             # SQLite layer
+│   │   └── models/         # Data structures
+│   ├── Cargo.toml
+│   └── tauri.conf.json
+│
+└── docs/                   # Documentation
+    ├── DEVELOPER_GUIDE.md  # Development guide
+    ├── API.md              # Command reference
+    ├── ARCHITECTURE.md     # System design
+    └── CONTRIBUTING.md     # Contribution guide
 ```
 
-## API Endpoints
+## Documentation
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/tours` | List all tours |
-| GET | `/api/tours/:id` | Get tour with scenes |
-| POST | `/api/tours` | Create new tour |
-| PUT | `/api/tours/:id` | Update tour |
-| DELETE | `/api/tours/:id` | Delete tour |
-| POST | `/api/scenes` | Add scene to tour |
-| PUT | `/api/scenes/:id` | Update scene |
-| DELETE | `/api/scenes/:id` | Remove scene |
-| POST | `/api/hotspots` | Create hotspot |
-| PUT | `/api/hotspots/:id` | Update hotspot |
-| DELETE | `/api/hotspots/:id` | Remove hotspot |
-| POST | `/api/upload/panorama` | Upload panorama image |
+| Document | Description |
+|----------|-------------|
+| [Developer Guide](./docs/DEVELOPER_GUIDE.md) | Complete development setup and workflows |
+| [API Reference](./docs/API.md) | All Tauri commands documentation |
+| [Architecture](./docs/ARCHITECTURE.md) | System design and decisions |
+| [Contributing](./docs/CONTRIBUTING.md) | How to contribute |
+
+## Development Commands
+
+```bash
+# Start development server
+cargo tauri dev
+
+# Run tests
+cd client && pnpm test
+
+# Type checking
+cd client && pnpm typecheck
+
+# Linting
+cd client && pnpm lint
+
+# Format Rust code
+cd src-tauri && cargo fmt
+```
+
+## Data Storage
+
+All data is stored locally in the user's Documents folder:
+
+```
+Documents/Ozone Studio/
+├── database.sqlite     # SQLite database
+├── projects/           # Project files
+│   └── {project-id}/
+│       ├── scenes/     # GLB files
+│       └── panoramas/  # 360° images
+└── materials/          # Material library
+    └── textures/       # Texture files
+```
+
+## License Tiers
+
+| Feature | Trial | Professional | Enterprise |
+|---------|-------|--------------|------------|
+| Projects | 3 | 50 | Unlimited |
+| Scenes/Project | 5 | 100 | Unlimited |
+| Export | No | Yes | Yes |
+| VR Mode | No | Yes | Yes |
+| Cloud Sync | No | No | Yes |
 
 ## License
 

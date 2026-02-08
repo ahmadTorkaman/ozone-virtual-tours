@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ozone Studio — Animated Logo Concepts</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #0a0a0f;
+    color: #ececf0;
+    min-height: 100vh;
+    padding: 48px 40px 80px;
+  }
+  h1 {
+    text-align: center;
+    font-size: 24px;
+    font-weight: 300;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    color: #ddd;
+  }
+  .subtitle {
+    text-align: center;
+    color: #5c5c66;
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 1.5px;
+    margin-bottom: 56px;
+  }
+  .section {
+    max-width: 1400px;
+    margin: 0 auto 64px;
+  }
+  .section-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 32px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #1c1c22;
+  }
+  .section-title {
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    color: #ececf0;
+  }
+  .section-sub {
+    font-size: 11px;
+    color: #5c5c66;
+    font-weight: 300;
+    letter-spacing: 0.5px;
+  }
+
+  .anim-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 28px;
+  }
+  .anim-card {
+    background: #111116;
+    border: 1px solid #1e1e26;
+    border-radius: 20px;
+    overflow: hidden;
+    transition: border-color 0.4s;
+  }
+  .anim-card:hover {
+    border-color: #333;
+  }
+  .anim-header {
+    padding: 20px 24px 0;
+  }
+  .anim-label {
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #6366f1;
+    margin-bottom: 4px;
+  }
+  .anim-name {
+    font-size: 17px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    margin-bottom: 4px;
+  }
+  .anim-desc {
+    font-size: 11px;
+    color: #5c5c66;
+    line-height: 1.5;
+    font-weight: 300;
+  }
+  .anim-stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px 40px;
+    min-height: 200px;
+  }
+  /* Wordmark under animation */
+  .anim-wordmark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 0 24px 28px;
+  }
+  .anim-wordmark .wm-text {
+    font-size: 18px;
+    font-weight: 300;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #ececf0;
+  }
+  .anim-wordmark .wm-studio {
+    font-size: 9px;
+    font-weight: 400;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: #5c5c66;
+    margin-top: 2px;
+  }
+
+  /* Replay button */
+  .replay-btn {
+    display: block;
+    margin: 0 auto 24px;
+    background: none;
+    border: 1px solid #2a2a32;
+    color: #8b8b97;
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 6px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  .replay-btn:hover {
+    border-color: #6366f1;
+    color: #a5b4fc;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     ANIMATIONS
+     ═══════════════════════════════════════════════════════ */
+
+  /* === ENSO DRAW === */
+  .enso-draw-main {
+    stroke-dasharray: 240;
+    stroke-dashoffset: 240;
+    animation: enso-draw 2.5s cubic-bezier(0.4, 0, 0.15, 1) forwards;
+  }
+  .enso-draw-thick {
+    stroke-dasharray: 80;
+    stroke-dashoffset: 80;
+    animation: enso-draw-thick 1.2s cubic-bezier(0.4, 0, 0.15, 1) 0.1s forwards;
+  }
+  @keyframes enso-draw {
+    to { stroke-dashoffset: 0; }
+  }
+  @keyframes enso-draw-thick {
+    to { stroke-dashoffset: 0; }
+  }
+
+  /* === ENSO BREATHE === */
+  .enso-breathe {
+    animation: enso-breathe-anim 4s ease-in-out infinite;
+  }
+  @keyframes enso-breathe-anim {
+    0%, 100% { transform: scale(1); opacity: 0.9; }
+    50% { transform: scale(1.04); opacity: 1; }
+  }
+
+  /* === ENSO SEED PULSE === */
+  .seed-dot {
+    animation: seed-pulse 3s ease-in-out infinite;
+  }
+  @keyframes seed-pulse {
+    0%, 100% { r: 3.5; opacity: 0.3; }
+    50% { r: 5.5; opacity: 0.7; }
+  }
+
+  /* === ENSO ROTATE === */
+  .enso-rotate {
+    animation: enso-slow-rotate 20s linear infinite;
+    transform-origin: 44px 44px;
+  }
+  @keyframes enso-slow-rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  /* === ENSO ECHO EXPAND === */
+  .echo-outer {
+    stroke-dasharray: 260;
+    stroke-dashoffset: 260;
+    animation: echo-expand 3s cubic-bezier(0.4, 0, 0.15, 1) 1.5s forwards;
+  }
+  .echo-inner-draw {
+    stroke-dasharray: 220;
+    stroke-dashoffset: 220;
+    animation: enso-draw 2s cubic-bezier(0.4, 0, 0.15, 1) forwards;
+  }
+  .echo-inner-thick {
+    stroke-dasharray: 80;
+    stroke-dashoffset: 80;
+    animation: enso-draw-thick 1s cubic-bezier(0.4, 0, 0.15, 1) 0.1s forwards;
+  }
+  @keyframes echo-expand {
+    to { stroke-dashoffset: 0; }
+  }
+
+  /* === BREATH FLOW === */
+  .breath-arc-1 {
+    stroke-dasharray: 120;
+    stroke-dashoffset: 120;
+    animation: breath-flow 1.5s cubic-bezier(0.4, 0, 0.15, 1) 0s forwards;
+  }
+  .breath-arc-2 {
+    stroke-dasharray: 130;
+    stroke-dashoffset: 130;
+    animation: breath-flow 1.5s cubic-bezier(0.4, 0, 0.15, 1) 0.3s forwards;
+  }
+  .breath-arc-3 {
+    stroke-dasharray: 140;
+    stroke-dashoffset: 140;
+    animation: breath-flow 1.5s cubic-bezier(0.4, 0, 0.15, 1) 0.6s forwards;
+  }
+  .breath-circle {
+    stroke-dasharray: 50;
+    stroke-dashoffset: 50;
+    animation: breath-flow 1s cubic-bezier(0.4, 0, 0.15, 1) 1.2s forwards;
+  }
+  .breath-dot {
+    opacity: 0;
+    animation: breath-dot-appear 0.6s ease 1.8s forwards;
+  }
+  @keyframes breath-flow {
+    to { stroke-dashoffset: 0; }
+  }
+  @keyframes breath-dot-appear {
+    to { opacity: 0.6; }
+  }
+
+  /* === BREATH WAVE === */
+  .wave-arc-1 {
+    animation: wave-float 4s ease-in-out infinite;
+  }
+  .wave-arc-2 {
+    animation: wave-float 4s ease-in-out 0.5s infinite;
+  }
+  .wave-arc-3 {
+    animation: wave-float 4s ease-in-out 1s infinite;
+  }
+  @keyframes wave-float {
+    0%, 100% { transform: translateY(0px); opacity: 0.3; }
+    50% { transform: translateY(-3px); opacity: 0.8; }
+  }
+
+  /* === BREATH RIPPLE === */
+  .ripple-ring-1 {
+    animation: ripple-expand 3s ease-out infinite;
+    transform-origin: 44px 44px;
+  }
+  .ripple-ring-2 {
+    animation: ripple-expand 3s ease-out 1s infinite;
+    transform-origin: 44px 44px;
+  }
+  .ripple-ring-3 {
+    animation: ripple-expand 3s ease-out 2s infinite;
+    transform-origin: 44px 44px;
+  }
+  @keyframes ripple-expand {
+    0% { transform: scale(0.4); opacity: 0.8; }
+    100% { transform: scale(1.4); opacity: 0; }
+  }
+
+  /* === BREATH EMBRACE FLOAT === */
+  .embrace-left {
+    animation: embrace-left-float 5s ease-in-out infinite;
+    transform-origin: 20px 44px;
+  }
+  .embrace-right {
+    animation: embrace-right-float 5s ease-in-out infinite;
+    transform-origin: 68px 44px;
+  }
+  .embrace-center {
+    animation: embrace-center-breathe 5s ease-in-out infinite;
+    transform-origin: 44px 44px;
+  }
+  @keyframes embrace-left-float {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(-4deg); }
+  }
+  @keyframes embrace-right-float {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(4deg); }
+  }
+  @keyframes embrace-center-breathe {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+
+  /* === COMBINED ENSO+BREATH === */
+  .combo-enso {
+    stroke-dasharray: 240;
+    stroke-dashoffset: 240;
+    animation: enso-draw 2s cubic-bezier(0.4, 0, 0.15, 1) forwards;
+  }
+  .combo-thick {
+    stroke-dasharray: 80;
+    stroke-dashoffset: 80;
+    animation: enso-draw-thick 1s cubic-bezier(0.4, 0, 0.15, 1) 0.1s forwards;
+  }
+  .combo-arc-1 {
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    animation: breath-flow 1.2s cubic-bezier(0.4, 0, 0.15, 1) 2s forwards;
+  }
+  .combo-arc-2 {
+    stroke-dasharray: 110;
+    stroke-dashoffset: 110;
+    animation: breath-flow 1.2s cubic-bezier(0.4, 0, 0.15, 1) 2.4s forwards;
+  }
+
+  /* === WORDMARK FADE === */
+  .wm-fade {
+    opacity: 0;
+    animation: wm-fadein 1s ease 2.5s forwards;
+  }
+  .wm-fade-fast {
+    opacity: 0;
+    animation: wm-fadein 0.8s ease 1.8s forwards;
+  }
+  @keyframes wm-fadein {
+    to { opacity: 1; }
+  }
+
+  /* === LOADING SPINNER === */
+  .spinner-enso {
+    animation: spinner-rotate 2s linear infinite;
+    transform-origin: 44px 44px;
+  }
+  @keyframes spinner-rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  .spinner-trail {
+    stroke-dasharray: 160 80;
+    animation: spinner-trail 2s ease-in-out infinite;
+  }
+  @keyframes spinner-trail {
+    0% { stroke-dashoffset: 0; }
+    50% { stroke-dashoffset: -80; }
+    100% { stroke-dashoffset: -240; }
+  }
+
+  /* Divider */
+  .divider {
+    max-width: 1400px;
+    margin: 0 auto 56px;
+    height: 1px;
+    background: linear-gradient(to right, transparent, #1e1e26, transparent);
+  }
+
+  /* Use case strip */
+  .usecase-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  .usecase-card {
+    background: #111116;
+    border: 1px solid #1e1e26;
+    border-radius: 16px;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    text-align: center;
+  }
+  .usecase-card .uc-label {
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #5c5c66;
+  }
+  .usecase-card .uc-desc {
+    font-size: 11px;
+    color: #5c5c66;
+    font-weight: 300;
+  }
+</style>
+</head>
+<body>
+
+<h1>Ozone Studio</h1>
+<p class="subtitle">animated logo concepts &mdash; enso & breath</p>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     ENSO ANIMATIONS
+     ═══════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-title">Ens&#333; Animations</span>
+    <span class="section-sub">Drawing, breathing, rotating</span>
+  </div>
+  <div class="anim-grid">
+
+    <!-- Enso Draw-in -->
+    <div class="anim-card" id="enso-draw-card">
+      <div class="anim-header">
+        <div class="anim-label">Enso 01</div>
+        <div class="anim-name">Brush Draw</div>
+        <p class="anim-desc">The stroke draws itself — like watching a zen master paint. Perfect for app startup / splash screen.</p>
+      </div>
+      <div class="anim-stage">
+        <svg id="enso-draw-svg" width="120" height="120" viewBox="0 0 88 88" fill="none">
+          <defs>
+            <linearGradient id="ed1" x1="16" y1="16" x2="72" y2="72">
+              <stop offset="0%" stop-color="#c7d2fe"/>
+              <stop offset="100%" stop-color="#6366f1" stop-opacity="0.2"/>
+            </linearGradient>
+          </defs>
+          <path class="enso-draw-main" d="M60 20 C72 28, 80 44, 76 58 C72 70, 58 78, 44 78 C28 78, 16 66, 14 52 C12 38, 20 24, 34 18"
+                stroke="url(#ed1)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <path class="enso-draw-thick" d="M60 20 C68 26, 76 38, 76 50"
+                stroke="#c7d2fe" stroke-width="6" fill="none" stroke-linecap="round" opacity="0.75"/>
+        </svg>
+      </div>
+      <div class="anim-wordmark">
+        <svg width="32" height="32" viewBox="0 0 88 88" fill="none">
+          <path d="M60 20 C72 28, 78 44, 74 58 C70 70, 56 78, 44 78 C28 78, 16 66, 14 52 C12 38, 20 24, 36 18"
+                stroke="#a5b4fc" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+          <path d="M60 20 C66 24, 72 34, 74 44" stroke="#c7d2fe" stroke-width="5.5" fill="none" stroke-linecap="round" opacity="0.7"/>
+        </svg>
+        <div>
+          <div class="wm-text">ozone</div>
+          <div class="wm-studio">studio</div>
+        </div>
+      </div>
+      <button class="replay-btn" onclick="replayEnso('enso-draw-svg')">Replay</button>
+    </div>
+
+    <!-- Enso Breathe -->
+    <div class="anim-card">
+      <div class="anim-header">
+        <div class="anim-label">Enso 02</div>
+        <div class="anim-name">Breathing</div>
+        <p class="anim-desc">Gentle scale pulse — inhale, exhale. Subtle ambient animation for idle state or about screen.</p>
+      </div>
+      <div class="anim-stage">
+        <svg width="120" height="120" viewBox="0 0 88 88" fill="none">
+          <defs>
+            <linearGradient id="eb1" x1="16" y1="16" x2="72" y2="72">
+              <stop offset="0%" stop-color="#c7d2fe"/>
+              <stop offset="100%" stop-color="#6366f1" stop-opacity="0.25"/>
+            </linearGradient>
+          </defs>
+          <g class="enso-breathe">
+            <path d="M60 20 C72 28, 78 44, 74 58 C70 70, 56 78, 44 78 C28 78, 16 66, 14 52 C12 38, 20 24, 36 18"
+                  stroke="url(#eb1)" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+            <path d="M60 20 C66 24, 72 34, 74 44"
+                  stroke="#c7d2fe" stroke-width="5.5" fill="none" stroke-linecap="round" opacity="0.65"/>
+          </g>
+        </svg>
+      </div>
+      <div class="anim-wordmark">
+        <div class="wm-text" style="opacity: 0.7;">Inhale &hellip; exhale</div>
+      </div>
+    </div>
+
+    <!-- Enso Seed Pulse -->
+    <div class="anim-card">
+      <div class="anim-header">
+        <div class="anim-label">Enso 03</div>
+        <div class="anim-name">Seed Pulse</div>
+        <p class="anim-desc">The center dot pulses gently — a heartbeat. Life within the circle. Great for loading states.</p>
+      </div>
+      <div class="anim-stage">
+        <svg width="120" height="120" viewBox="0 0 88 88" fill="none">
+          <defs>
+            <linearGradient id="esp1" x1="16" y1="16" x2="72" y2="72">
+              <stop offset="0%" stop-color="#c7d2fe"/>
+              <stop offset="100%" stop-color="#6366f1" stop-opacity="0.25"/>
+            </linearGradient>
+          </defs>
+          <path d="M60 20 C72 28, 78 44, 74 58 C70 70, 56 78, 44 78 C28 78, 16 66, 14 52 C12 38, 20 24, 36 18"
+                stroke="url(#esp1)" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M60 20 C66 24, 72 34, 74 44"
+                stroke="#c7d2fe" stroke-width="5" fill="none" stroke-linecap="round" opacity="0.6"/>
+          <circle class="seed-dot" cx="44" cy="46" r="4" fill="#818cf8"/>
+        </svg>
+      </div>
+      <div class="anim-wordmark">
+        <div class="wm-text" style="opacity: 0.7;">Alive</div>
+      </div>
+    </div>
+
+    <!-- Enso Slow Rotate -->
+    <div class="anim-card">
+      <div class="anim-header">
+        <div class="anim-label">Enso 04</div>
+        <div class="anim-name">Slow Orbit</div>
+        <p class="anim-desc">The enso rotates very slowly — like a planet. Meditative, hypnotic. Background / screensaver energy.</p>
+      </div>
+      <div class="anim-stage">
+        <svg width="120" height="120" viewBox="0 0 88 88" fill="none">
+          <defs>
+            <linearGradient id="esr1" x1="16" y1="16" x2="72" y2="72">
+              <stop offset="0%" stop-color="#c7d2fe"/>
+              <stop offset="100%" stop-color="#6366f1" stop-opacity="0.2"/>
+            </linearGradient>
+          </defs>
+          <g class="enso-rotate">
+            <path d="M60 20 C72 28, 78 44, 74 58 C70 70, 56 78, 44 78 C28 78, 16 66, 14 52 C12 38, 20 24, 36 18"
+                  stroke="url(#esr1)" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+            <path d="M60 20 C66 24, 72 34, 74 44"
+                  stroke="#c7d2fe" stroke-width="5.5" fill="none" stroke-linecap="round" opacity="0.65"/>
+          </g>
+        </svg>
+      </div>
+      <div class="anim-wordmark">
+        <div class="wm-text" style="opacity: 0.7;">Eternal</div>
+      </div>
+    </div>
+
+    <!-- Enso Echo Draw -->
+    <div class="anim-card" id="enso-echo-card">
+      <div class="anim-header">
+        <div class="anim-label">Enso 05</div>
+        <div class="anim-name">Echo Draw</div>
+        <p class="anim-desc">Inner circle draws first, then an echo ring expands outward — the ozone layer forming around the core.</p>
+      </div>
+      <div class="anim-stage">
+        <svg id="enso-echo-svg" width="120" height="120" viewBox="0 0 88 88" fill="none">
+          <!-- Outer echo -->
+          <path class="echo-outer" d="M62 16 C78 26, 84 46, 80 60 C76 74, 60 82, 44 82 C26 82, 12 70, 10 54 C8 36, 16 20, 32 14"
+                stroke="#818cf8" stroke-width="1.2" fill="none" stroke-linecap="round" opacity="0.3"/>
+          <!-- Inner main -->
+          <path class="echo-inner-draw" d="M58 22 C70 30, 76 44, 72 56 C68 68, 56 74, 44 74 C30 74, 20 64, 18 52 C16 40, 22 28, 36 22"
+                stroke="#a5b4fc" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+          <path class="echo-inner-thick" d="M58 22 C64 26, 70 34, 72 44"
+                stroke="#c7d2fe" stroke-width="5.5" fill="none" stroke-linecap="round" opacity="0.6"/>
+        </svg>
+      </div>
+      <div class="anim-wordmark">
+        <svg width="28" height="28" viewBox="0 0 88 88" fill="none">
+          <path d="M62 16 C78 26, 84 46, 80 60 C76 74, 60 82, 44 82 C26 82, 12 70, 10 54 C8 36, 16 20, 32 14"
+                stroke="#818cf8" stroke-width="1.2" fill="none" stroke-linecap="round" opacity="0.25"/>
+          <path d="M58 22 C70 30, 76 44, 72 56 C68 68, 56 74, 44 74 C30 74, 20 64, 18 52 C16 40, 22 28, 36 22"
+                stroke="#a5b4fc" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+          <path d="M58 22 C64 26, 70 34, 72 44" stroke="#c7d2fe" stroke-width="5.5" fill="none" stroke-linecap="round" opacity="0.6"/>
+        </svg>
+        <div>
+          <div class="wm-text">ozone</div>
+          <div class="wm-studio">studio</div>
+        </div>
+      </div>
+      <button class="replay-btn" onclick="replayEnso('enso-echo-svg')">Replay</button>
+    </div>
+
+    <!-- Enso Loading Spinner -->
+    <div class="anim-card">
+      <div class="anim-header">
+        <div class="anim-label">Enso 06</div>
+        <div class="anim-name">Loading Spinner</div>
+        <p class="anim-desc">The enso as a loading indicator — the brush gap chases itself. Replaces boring spinners everywhere in the app.</p>
+      </div>
+      <div class="anim-stage">
+        <svg width="120" height="120" viewBox="0 0 88 88" fill="none">
+          <defs>
+            <linearGradient id="els1" x1="16" y1="16" x2="72" y2="72" gradientTransform="rotate(45 44 44)">
+              <stop offset="0%" stop-color="#c7d2fe"/>
+              <stop offset="60%" stop-color="#6366f1"/>
+              <stop offset="100%" stop-color="#6366f1" stop-opacity="0.05"/>
+            </linearGradient>
+          </defs>
+          <g class="spinner-enso">
+            <circle cx="44" cy="44" r="26" stroke="url(#els1)" stroke-width="3.5" fill="none" stroke-linecap="round"
+                    class="spinner-trail"/>
+          </g>
+        </svg>
+      </div>
+      <div class="anim-wordmark">
+        <div class="wm-text" style="opacity: 0.7; font-size: 12px; letter-spacing: 2px;">Loading&hellip;</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     BREATH ANIMATIONS
+     ═══════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-title">Breath Animations</span>
+    <span class="section-sub">Flowing, rippling, embracing</span>
+  </div>
+  <div class="anim-grid">
+
+    <!-- Breath Draw-in -->
+    <div class="anim-card" id="breath-draw-card">
+      <div class="anim-header">
+        <div class="anim-label">Breath 01</div>
+        <div class="anim-name">Flow Draw</div>
+        <p class="anim-desc">Arcs draw in sequence — like wind currents appearing one by one. The O appears last as the anchor.</p>
+      </div>
+      <div class="anim-stage">
+        <svg id="breath-draw-svg" width="120" height="120" viewBox="0 0 88 88" fill="none">
+          <path class="breath-arc-1" d="M12 54 C24 36, 42 26, 62 30"
+                stroke="#e0e7ff" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.35"/>
+          <path class="breath-arc-2" d="M12 62 C26 40, 46 28, 68 36"
+                stroke="#a5b4fc" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.55"/>
+          <path class="breath-arc-3" d="M12 70 C28 44, 50 30, 74 42"
+                stroke="#818cf8" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+          <circle class="breath-circle" cx="44" cy="54" r="7" stroke="#6366f1" stroke-width="2" fill="none"/>
+          <circle class="breath-dot" cx="44" cy="54" r="1.5" fill="#a5b4fc"/>
+        </svg>
+      </div>
+      <div class="anim-wordmark">
+        <svg width="28" height="28" viewBox="0 0 88 88" fill="none">
+          <path d="M12 62 C26 40, 46 28, 68 36" stroke="#a5b4fc" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.45"/>
+          <path d="M12 70 C28 44, 50 30, 74 42" stroke="#818cf8" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+          <circle cx="44" cy="54" r="7" stroke="#6366f1" stroke-width="2" fill="none"/>
+          <circle cx="44" cy="54" r="1.5" fill="#a5b4fc" opacity="0.5"/>
+        </svg>
+        <div>
+          <div class="wm-text">ozone</div>
+          <div class="wm-studio">studio</div>
+        </div>
+      </div>
+      <button class="replay-btn" onclick="replayEnso('breath-draw-svg')">Replay</button>
+    </div>
+
+    <!-- Breath Wave -->
+    <div class="anim-card">
+      <div class="anim-header">
+        <div class="anim-label">Breath 02</div>
+        <div class="anim-name">Gentle Wave</div>
+        <p class="anim-desc">Arcs float up and down in sequence — breathing waves. Calming ambient animation for idle or about screen.</p>
+      </div>
+      <div class="anim-stage">
+        <svg width="120" height="120" viewBox="0 0 88 88" fill="none">
+          <path class="wave-arc-1" d="M12 54 C24 36, 42 26, 62 30"
+                stroke="#e0e7ff" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          <path class="wave-arc-2" d="M12 62 C26 40, 46 28, 68 36"
+                stroke="#a5b4fc" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <path class="wave-arc-3" d="M12 70 C28 44, 50 30, 74 42"
+                stroke="#818cf8" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+          <circle cx="44" cy="54" r="7" stroke="#6366f1" stroke-width="2" fill="none"/>
+          <circle cx="44" cy="54" r="1.5" fill="#a5b4fc" opacity="0.5"/>
+        </svg>
+      </div>
+      <div class="anim-wordmark">
+        <div class="wm-text" style="opacity: 0.7;">Floating</div>
+      </div>
+    </div>
+
+    <!-- Breath Ripple from center -->
+    <div class="anim-card">
+      <div class="anim-header">
+        <div class="anim-label">Breath 03</div>
+        <div class="anim-name">Ripple</div>
+        <p class="anim-desc">Rings expand from the center O outward — like dropping a stone in still water. Endless, meditative ripples.</p>
+      </div>
+      <div class="anim-stage">
+        <svg width="120" height="120" viewBox="0 0 88 88" fill="none">
+          <!-- Center O stays -->
+          <circle cx="44" cy="44" r="8" stroke="#6366f1" stroke-width="2" fill="none"/>
+          <circle cx="44" cy="44" r="1.5" fill="#a5b4fc" opacity="0.5"/>
+          <!-- Expanding ripple rings -->
+          <circle class="ripple-ring-1" cx="44" cy="44" r="20" stroke="#818cf8" stroke-width="1.5" fill="none"/>
+          <circle class="ripple-ring-2" cx="44" cy="44" r="20" stroke="#a5b4fc" stroke-width="1.2" fill="none"/>
+          <circle class="ripple-ring-3" cx="44" cy="44" r="20" stroke="#c7d2fe" stroke-width="1" fill="none"/>
+        </svg>
+      </div>
+      <div class="anim-wordmark">
+        <div class="wm-text" style="opacity: 0.7;">Radiating</div>
+      </div>
+    </div>
+
+    <!-- Breath Embrace -->
+    <div class="anim-card">
+      <div class="anim-header">
+        <div class="anim-label">Breath 04</div>
+        <div class="anim-name">Embrace Float</div>
+        <p class="anim-desc">The protective arcs gently sway while the O breathes — the ozone layer in motion. Organic, alive.</p>
+      </div>
+      <div class="anim-stage">
+        <svg width="120" height="120" viewBox="0 0 88 88" fill="none">
+          <g class="embrace-center">
+            <circle cx="44" cy="44" r="12" stroke="#6366f1" stroke-width="2.5" fill="none"/>
+            <circle cx="44" cy="44" r="2" fill="#a5b4fc" opacity="0.4"/>
+          </g>
+          <g class="embrace-right">
+            <path d="M66 26 C76 38, 76 54, 66 66" stroke="#c7d2fe" stroke-width="1.8" fill="none" stroke-linecap="round" opacity="0.4"/>
+            <path d="M72 20 C84 36, 84 56, 72 72" stroke="#a5b4fc" stroke-width="1.2" fill="none" stroke-linecap="round" opacity="0.2"/>
+          </g>
+          <g class="embrace-left">
+            <path d="M22 62 C12 50, 12 34, 22 22" stroke="#c7d2fe" stroke-width="1.8" fill="none" stroke-linecap="round" opacity="0.4"/>
+            <path d="M16 68 C4 52, 4 32, 16 16" stroke="#a5b4fc" stroke-width="1.2" fill="none" stroke-linecap="round" opacity="0.2"/>
+          </g>
+        </svg>
+      </div>
+      <div class="anim-wordmark">
+        <div class="wm-text" style="opacity: 0.7;">Protected</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     COMBINED / HYBRID
+     ═══════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-title">Hybrid — Ens&#333; + Breath</span>
+    <span class="section-sub">What if we merge the best of both?</span>
+  </div>
+  <div class="anim-grid" style="grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));">
+
+    <!-- Combined: Enso draws, then breath arcs appear -->
+    <div class="anim-card" id="combo-card">
+      <div class="anim-header">
+        <div class="anim-label">Hybrid 01</div>
+        <div class="anim-name">Enso + Breath</div>
+        <p class="anim-desc">The enso draws itself, then breath arcs flow outward from the gap — the circle breathes. The complete identity.</p>
+      </div>
+      <div class="anim-stage" style="min-height: 240px;">
+        <svg id="combo-svg" width="160" height="160" viewBox="0 0 88 88" fill="none">
+          <defs>
+            <linearGradient id="cm1" x1="16" y1="16" x2="72" y2="72">
+              <stop offset="0%" stop-color="#c7d2fe"/>
+              <stop offset="100%" stop-color="#6366f1" stop-opacity="0.2"/>
+            </linearGradient>
+          </defs>
+          <!-- Main enso -->
+          <path class="combo-enso" d="M58 20 C70 28, 76 44, 72 56 C68 68, 56 76, 44 76 C30 76, 18 66, 16 52 C14 38, 22 26, 34 20"
+                stroke="url(#cm1)" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path class="combo-thick" d="M58 20 C64 24, 70 34, 72 44"
+                stroke="#c7d2fe" stroke-width="5" fill="none" stroke-linecap="round" opacity="0.65"/>
+          <!-- Breath arcs flowing from gap area -->
+          <path class="combo-arc-1" d="M40 16 C52 8, 68 10, 76 18"
+                stroke="#a5b4fc" stroke-width="1.2" fill="none" stroke-linecap="round" opacity="0.3"/>
+          <path class="combo-arc-2" d="M36 12 C50 2, 72 4, 82 16"
+                stroke="#818cf8" stroke-width="1" fill="none" stroke-linecap="round" opacity="0.2"/>
+        </svg>
+      </div>
+      <div class="anim-wordmark">
+        <svg width="36" height="36" viewBox="0 0 88 88" fill="none">
+          <path d="M58 20 C70 28, 76 44, 72 56 C68 68, 56 76, 44 76 C30 76, 18 66, 16 52 C14 38, 22 26, 34 20"
+                stroke="#a5b4fc" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M58 20 C64 24, 70 34, 72 44" stroke="#c7d2fe" stroke-width="5" fill="none" stroke-linecap="round" opacity="0.6"/>
+          <path d="M40 16 C52 8, 68 10, 76 18" stroke="#a5b4fc" stroke-width="1.2" fill="none" stroke-linecap="round" opacity="0.25"/>
+        </svg>
+        <div>
+          <div class="wm-text">ozone</div>
+          <div class="wm-studio">studio</div>
+        </div>
+      </div>
+      <button class="replay-btn" onclick="replayEnso('combo-svg')">Replay</button>
+    </div>
+
+    <!-- Combined: Breathing enso with ripple -->
+    <div class="anim-card">
+      <div class="anim-header">
+        <div class="anim-label">Hybrid 02</div>
+        <div class="anim-name">Living Circle</div>
+        <p class="anim-desc">Breathing enso with ripples emanating outward — alive, radiating energy. The ozone layer as a living system.</p>
+      </div>
+      <div class="anim-stage" style="min-height: 240px;">
+        <svg width="160" height="160" viewBox="0 0 88 88" fill="none">
+          <defs>
+            <linearGradient id="lc1" x1="16" y1="16" x2="72" y2="72">
+              <stop offset="0%" stop-color="#c7d2fe"/>
+              <stop offset="100%" stop-color="#6366f1" stop-opacity="0.25"/>
+            </linearGradient>
+          </defs>
+          <!-- Ripple rings from center -->
+          <circle class="ripple-ring-1" cx="44" cy="44" r="32" stroke="#6366f1" stroke-width="0.8" fill="none"/>
+          <circle class="ripple-ring-2" cx="44" cy="44" r="32" stroke="#818cf8" stroke-width="0.6" fill="none"/>
+          <circle class="ripple-ring-3" cx="44" cy="44" r="32" stroke="#a5b4fc" stroke-width="0.5" fill="none"/>
+          <!-- Breathing enso on top -->
+          <g class="enso-breathe">
+            <path d="M58 22 C70 30, 76 44, 72 56 C68 68, 56 74, 44 74 C30 74, 20 64, 18 52 C16 40, 22 28, 36 22"
+                  stroke="url(#lc1)" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <path d="M58 22 C64 26, 70 34, 72 44"
+                  stroke="#c7d2fe" stroke-width="5" fill="none" stroke-linecap="round" opacity="0.6"/>
+            <circle class="seed-dot" cx="44" cy="46" r="3.5" fill="#818cf8"/>
+          </g>
+        </svg>
+      </div>
+      <div class="anim-wordmark">
+        <svg width="36" height="36" viewBox="0 0 88 88" fill="none">
+          <path d="M58 22 C70 30, 76 44, 72 56 C68 68, 56 74, 44 74 C30 74, 20 64, 18 52 C16 40, 22 28, 36 22"
+                stroke="#a5b4fc" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M58 22 C64 26, 70 34, 72 44" stroke="#c7d2fe" stroke-width="5" fill="none" stroke-linecap="round" opacity="0.6"/>
+          <circle cx="44" cy="46" r="3" fill="#818cf8" opacity="0.4"/>
+        </svg>
+        <div>
+          <div class="wm-text">ozone</div>
+          <div class="wm-studio">studio</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     USE CASES
+     ═══════════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-title">Where These Live</span>
+    <span class="section-sub">Context &mdash; how animations map to the app</span>
+  </div>
+  <div class="usecase-grid">
+    <div class="usecase-card">
+      <svg width="48" height="48" viewBox="0 0 88 88" fill="none">
+        <g class="spinner-enso">
+          <circle cx="44" cy="44" r="22" stroke="#6366f1" stroke-width="3" fill="none" stroke-linecap="round"
+                  class="spinner-trail"/>
+        </g>
+      </svg>
+      <span class="uc-label">Loading Spinner</span>
+      <span class="uc-desc">Replace all spinners in the app with the enso chase animation</span>
+    </div>
+    <div class="usecase-card">
+      <svg width="48" height="48" viewBox="0 0 88 88" fill="none">
+        <g class="enso-breathe">
+          <path d="M58 22 C70 30, 76 44, 72 56 C68 68, 56 74, 44 74 C30 74, 20 64, 18 52 C16 40, 22 28, 36 22"
+                stroke="#a5b4fc" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M58 22 C64 26, 70 34, 72 44" stroke="#c7d2fe" stroke-width="5" fill="none" stroke-linecap="round" opacity="0.6"/>
+        </g>
+      </svg>
+      <span class="uc-label">Splash Screen</span>
+      <span class="uc-desc">Brush draw animation on app startup, then settle into breathing</span>
+    </div>
+    <div class="usecase-card">
+      <div style="width: 48px; height: 48px; background: #6366f1; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+        <svg width="28" height="28" viewBox="0 0 88 88" fill="none">
+          <path d="M60 20 C72 28, 78 44, 74 58 C70 70, 56 78, 44 78 C28 78, 16 66, 14 52 C12 38, 20 24, 36 18"
+                stroke="white" stroke-width="5" fill="none" stroke-linecap="round"/>
+          <path d="M60 20 C66 24, 72 34, 74 44" stroke="white" stroke-width="7.5" fill="none" stroke-linecap="round" opacity="0.6"/>
+        </svg>
+      </div>
+      <span class="uc-label">Taskbar / Dock</span>
+      <span class="uc-desc">Static icon — the brush stroke reads beautifully even at 32px</span>
+    </div>
+    <div class="usecase-card">
+      <div style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: #16161a; border-radius: 8px;">
+        <div style="width: 24px; height: 24px; background: #6366f1; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+          <svg width="14" height="14" viewBox="0 0 88 88" fill="none">
+            <path d="M60 20 C72 28, 78 44, 74 58 C70 70, 56 78, 44 78 C28 78, 16 66, 14 52 C12 38, 20 24, 36 18"
+                  stroke="white" stroke-width="7" fill="none" stroke-linecap="round"/>
+            <path d="M60 20 C66 24, 72 34, 74 44" stroke="white" stroke-width="10" fill="none" stroke-linecap="round" opacity="0.6"/>
+          </svg>
+        </div>
+        <span style="font-size: 12px; font-weight: 500; color: #ececf0;">Ozone Studio</span>
+      </div>
+      <span class="uc-label">Sidebar Brand</span>
+      <span class="uc-desc">Static in sidebar, gentle breathe on hover</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Replay animation by removing and re-adding the SVG
+  function replayEnso(svgId) {
+    const svg = document.getElementById(svgId);
+    const parent = svg.parentNode;
+    const clone = svg.cloneNode(true);
+    parent.removeChild(svg);
+    // Force reflow
+    void parent.offsetWidth;
+    parent.appendChild(clone);
+  }
+</script>
+
+</body>
+</html>
