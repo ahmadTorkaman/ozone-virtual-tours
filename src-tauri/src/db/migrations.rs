@@ -189,5 +189,56 @@ fn get_migrations() -> Vec<&'static str> {
             ('cat_plastics', 'Plastics', 6),
             ('cat_custom', 'Custom', 99);
         "#,
+
+        // Migration 2: Publish & Configurator tables
+        r#"
+        -- Add publish columns to projects
+        ALTER TABLE projects ADD COLUMN scene_published INTEGER DEFAULT 0;
+        ALTER TABLE projects ADD COLUMN panorama_published INTEGER DEFAULT 0;
+        ALTER TABLE projects ADD COLUMN publish_version INTEGER DEFAULT 0;
+        ALTER TABLE projects ADD COLUMN published_at TEXT;
+        ALTER TABLE projects ADD COLUMN publish_slug TEXT;
+
+        -- Firm profile (singleton)
+        CREATE TABLE firm_profile (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            firm_name TEXT NOT NULL DEFAULT '',
+            subdomain TEXT NOT NULL DEFAULT '',
+            logo_path TEXT,
+            file_server_url TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        -- Insert default empty row
+        INSERT INTO firm_profile (id, firm_name, subdomain) VALUES (1, '', '');
+
+        -- Configurable component groups
+        CREATE TABLE component_groups (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            scene_id TEXT NOT NULL REFERENCES scenes(id) ON DELETE CASCADE,
+            group_name TEXT NOT NULL,
+            mesh_names TEXT NOT NULL,
+            default_material_id TEXT REFERENCES materials(id) ON DELETE SET NULL,
+            sort_order INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
+        -- Allowed materials per component group
+        CREATE TABLE component_material_options (
+            id TEXT PRIMARY KEY,
+            component_group_id TEXT NOT NULL REFERENCES component_groups(id) ON DELETE CASCADE,
+            material_id TEXT NOT NULL REFERENCES materials(id) ON DELETE CASCADE,
+            sort_order INTEGER DEFAULT 0
+        );
+
+        -- Indexes
+        CREATE INDEX idx_component_groups_project ON component_groups(project_id);
+        CREATE INDEX idx_component_groups_scene ON component_groups(scene_id);
+        CREATE INDEX idx_component_material_options_group ON component_material_options(component_group_id);
+        CREATE UNIQUE INDEX idx_publish_slug ON projects(publish_slug) WHERE publish_slug IS NOT NULL;
+        "#,
     ]
 }

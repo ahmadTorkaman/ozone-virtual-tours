@@ -12,6 +12,11 @@ pub struct Project {
     pub cloud_id: Option<String>,
     pub last_synced_at: Option<String>,
     pub sync_enabled: bool,
+    pub scene_published: bool,
+    pub panorama_published: bool,
+    pub publish_version: i32,
+    pub published_at: Option<String>,
+    pub publish_slug: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

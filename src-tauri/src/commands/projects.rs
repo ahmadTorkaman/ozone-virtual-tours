@@ -64,6 +64,11 @@ pub fn create_project(input: CreateProjectInput, state: State<AppState>) -> Resu
         cloud_id: None,
         last_synced_at: None,
         sync_enabled: false,
+        scene_published: false,
+        panorama_published: false,
+        publish_version: 0,
+        published_at: None,
+        publish_slug: None,
     };
 
     queries::create_project(&conn, &project)

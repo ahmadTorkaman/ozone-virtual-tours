@@ -1,9 +1,12 @@
+pub mod configurator;
 pub mod export;
 pub mod files;
+pub mod firm;
 pub mod license;
 pub mod materials;
 pub mod panoramas;
 pub mod projects;
+pub mod publish;
 pub mod scenes;
 pub mod settings;
 pub mod updater;

@@ -1,3 +1,5 @@
+pub mod configurator;
+pub mod firm;
 pub mod material;
 pub mod panorama;
 pub mod project;

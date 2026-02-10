@@ -4,7 +4,10 @@ use crate::models::settings::Setting;
 use crate::models::scene::Scene;
 use crate::models::material::{Material, MaterialCategory, MaterialMapping};
 use crate::models::panorama::{Panorama, Hotspot};
+use crate::models::firm::{FirmProfile, UpdateFirmProfileInput};
+use crate::models::configurator::{ComponentGroup, ComponentMaterialOption, UpdateComponentGroupInput};
 use crate::license::{License, LicenseTier};
+use crate::utils::slug::slugify;
 
 // ============================================
 // PROJECTS
@@ -13,7 +16,8 @@ use crate::license::{License, LicenseTier};
 pub fn get_all_projects(conn: &Connection) -> Result<Vec<Project>> {
     let mut stmt = conn.prepare(
         "SELECT id, name, description, thumbnail_path, folder_path,
-                created_at, updated_at, cloud_id, last_synced_at, sync_enabled
+                created_at, updated_at, cloud_id, last_synced_at, sync_enabled,
+                scene_published, panorama_published, publish_version, published_at, publish_slug
          FROM projects ORDER BY updated_at DESC"
     )?;
 
@@ -29,6 +33,11 @@ pub fn get_all_projects(conn: &Connection) -> Result<Vec<Project>> {
             cloud_id: row.get(7)?,
             last_synced_at: row.get(8)?,
             sync_enabled: row.get(9)?,
+            scene_published: row.get(10)?,
+            panorama_published: row.get(11)?,
+            publish_version: row.get(12)?,
+            published_at: row.get(13)?,
+            publish_slug: row.get(14)?,
         })
     })?;
 
@@ -38,7 +47,8 @@ pub fn get_all_projects(conn: &Connection) -> Result<Vec<Project>> {
 pub fn get_project(conn: &Connection, id: &str) -> Result<Option<Project>> {
     let mut stmt = conn.prepare(
         "SELECT id, name, description, thumbnail_path, folder_path,
-                created_at, updated_at, cloud_id, last_synced_at, sync_enabled
+                created_at, updated_at, cloud_id, last_synced_at, sync_enabled,
+                scene_published, panorama_published, publish_version, published_at, publish_slug
          FROM projects WHERE id = ?1"
     )?;
 
@@ -56,6 +66,11 @@ pub fn get_project(conn: &Connection, id: &str) -> Result<Option<Project>> {
             cloud_id: row.get(7)?,
             last_synced_at: row.get(8)?,
             sync_enabled: row.get(9)?,
+            scene_published: row.get(10)?,
+            panorama_published: row.get(11)?,
+            publish_version: row.get(12)?,
+            published_at: row.get(13)?,
+            publish_slug: row.get(14)?,
         }))
     } else {
         Ok(None)
@@ -65,8 +80,9 @@ pub fn get_project(conn: &Connection, id: &str) -> Result<Option<Project>> {
 pub fn create_project(conn: &Connection, project: &Project) -> Result<()> {
     conn.execute(
         "INSERT INTO projects (id, name, description, thumbnail_path, folder_path,
-                               created_at, updated_at, cloud_id, last_synced_at, sync_enabled)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                               created_at, updated_at, cloud_id, last_synced_at, sync_enabled,
+                               scene_published, panorama_published, publish_version, published_at, publish_slug)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
         params![
             project.id,
             project.name,
@@ -78,6 +94,11 @@ pub fn create_project(conn: &Connection, project: &Project) -> Result<()> {
             project.cloud_id,
             project.last_synced_at,
             project.sync_enabled,
+            project.scene_published,
+            project.panorama_published,
+            project.publish_version,
+            project.published_at,
+            project.publish_slug,
         ],
     )?;
     Ok(())
@@ -905,5 +926,321 @@ pub fn remove_license(conn: &Connection) -> Result<()> {
          WHERE id = 1",
         [],
     )?;
+    Ok(())
+}
+
+// ============================================
+// PUBLISH
+// ============================================
+
+pub fn update_project_publish_scene(conn: &Connection, id: &str, published: bool) -> Result<Option<Project>> {
+    if published {
+        // Auto-generate slug if null
+        let current_slug: Option<String> = conn.query_row(
+            "SELECT publish_slug FROM projects WHERE id = ?1",
+            [id],
+            |row| row.get(0),
+        )?;
+
+        if current_slug.is_none() {
+            let name: String = conn.query_row(
+                "SELECT name FROM projects WHERE id = ?1",
+                [id],
+                |row| row.get(0),
+            )?;
+            let slug = slugify(&name);
+            conn.execute(
+                "UPDATE projects SET publish_slug = ?1 WHERE id = ?2",
+                params![slug, id],
+            )?;
+        }
+
+        conn.execute(
+            "UPDATE projects SET scene_published = 1,
+                publish_version = publish_version + 1,
+                published_at = datetime('now'),
+                updated_at = datetime('now')
+             WHERE id = ?1",
+            [id],
+        )?;
+    } else {
+        conn.execute(
+            "UPDATE projects SET scene_published = 0, updated_at = datetime('now') WHERE id = ?1",
+            [id],
+        )?;
+    }
+
+    get_project(conn, id)
+}
+
+pub fn update_project_publish_panorama(conn: &Connection, id: &str, published: bool) -> Result<Option<Project>> {
+    if published {
+        let current_slug: Option<String> = conn.query_row(
+            "SELECT publish_slug FROM projects WHERE id = ?1",
+            [id],
+            |row| row.get(0),
+        )?;
+
+        if current_slug.is_none() {
+            let name: String = conn.query_row(
+                "SELECT name FROM projects WHERE id = ?1",
+                [id],
+                |row| row.get(0),
+            )?;
+            let slug = slugify(&name);
+            conn.execute(
+                "UPDATE projects SET publish_slug = ?1 WHERE id = ?2",
+                params![slug, id],
+            )?;
+        }
+
+        conn.execute(
+            "UPDATE projects SET panorama_published = 1,
+                publish_version = publish_version + 1,
+                published_at = datetime('now'),
+                updated_at = datetime('now')
+             WHERE id = ?1",
+            [id],
+        )?;
+    } else {
+        conn.execute(
+            "UPDATE projects SET panorama_published = 0, updated_at = datetime('now') WHERE id = ?1",
+            [id],
+        )?;
+    }
+
+    get_project(conn, id)
+}
+
+pub fn update_project_publish_slug(conn: &Connection, id: &str, slug: &str) -> Result<()> {
+    conn.execute(
+        "UPDATE projects SET publish_slug = ?1, updated_at = datetime('now') WHERE id = ?2",
+        params![slug, id],
+    )?;
+    Ok(())
+}
+
+// ============================================
+// FIRM PROFILE
+// ============================================
+
+pub fn get_firm_profile(conn: &Connection) -> Result<FirmProfile> {
+    conn.query_row(
+        "SELECT id, firm_name, subdomain, logo_path, file_server_url, created_at, updated_at
+         FROM firm_profile WHERE id = 1",
+        [],
+        |row| {
+            Ok(FirmProfile {
+                id: row.get(0)?,
+                firm_name: row.get(1)?,
+                subdomain: row.get(2)?,
+                logo_path: row.get(3)?,
+                file_server_url: row.get(4)?,
+                created_at: row.get(5)?,
+                updated_at: row.get(6)?,
+            })
+        },
+    )
+}
+
+pub fn update_firm_profile(conn: &Connection, input: &UpdateFirmProfileInput) -> Result<FirmProfile> {
+    conn.execute(
+        "UPDATE firm_profile SET firm_name = ?1, subdomain = ?2, logo_path = ?3,
+                file_server_url = ?4, updated_at = datetime('now')
+         WHERE id = 1",
+        params![input.firm_name, input.subdomain, input.logo_path, input.file_server_url],
+    )?;
+    get_firm_profile(conn)
+}
+
+// ============================================
+// COMPONENT GROUPS
+// ============================================
+
+pub fn get_component_groups_by_scene(conn: &Connection, scene_id: &str) -> Result<Vec<ComponentGroup>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, project_id, scene_id, group_name, mesh_names, default_material_id,
+                sort_order, created_at, updated_at
+         FROM component_groups WHERE scene_id = ?1 ORDER BY sort_order"
+    )?;
+
+    let groups = stmt.query_map([scene_id], |row| {
+        Ok(ComponentGroup {
+            id: row.get(0)?,
+            project_id: row.get(1)?,
+            scene_id: row.get(2)?,
+            group_name: row.get(3)?,
+            mesh_names: row.get(4)?,
+            default_material_id: row.get(5)?,
+            sort_order: row.get(6)?,
+            created_at: row.get(7)?,
+            updated_at: row.get(8)?,
+        })
+    })?;
+
+    groups.collect()
+}
+
+pub fn get_component_groups_by_project(conn: &Connection, project_id: &str) -> Result<Vec<ComponentGroup>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, project_id, scene_id, group_name, mesh_names, default_material_id,
+                sort_order, created_at, updated_at
+         FROM component_groups WHERE project_id = ?1 ORDER BY sort_order"
+    )?;
+
+    let groups = stmt.query_map([project_id], |row| {
+        Ok(ComponentGroup {
+            id: row.get(0)?,
+            project_id: row.get(1)?,
+            scene_id: row.get(2)?,
+            group_name: row.get(3)?,
+            mesh_names: row.get(4)?,
+            default_material_id: row.get(5)?,
+            sort_order: row.get(6)?,
+            created_at: row.get(7)?,
+            updated_at: row.get(8)?,
+        })
+    })?;
+
+    groups.collect()
+}
+
+pub fn get_component_group(conn: &Connection, id: &str) -> Result<Option<ComponentGroup>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, project_id, scene_id, group_name, mesh_names, default_material_id,
+                sort_order, created_at, updated_at
+         FROM component_groups WHERE id = ?1"
+    )?;
+
+    let mut rows = stmt.query([id])?;
+
+    if let Some(row) = rows.next()? {
+        Ok(Some(ComponentGroup {
+            id: row.get(0)?,
+            project_id: row.get(1)?,
+            scene_id: row.get(2)?,
+            group_name: row.get(3)?,
+            mesh_names: row.get(4)?,
+            default_material_id: row.get(5)?,
+            sort_order: row.get(6)?,
+            created_at: row.get(7)?,
+            updated_at: row.get(8)?,
+        }))
+    } else {
+        Ok(None)
+    }
+}
+
+pub fn create_component_group(conn: &Connection, group: &ComponentGroup) -> Result<()> {
+    conn.execute(
+        "INSERT INTO component_groups (id, project_id, scene_id, group_name, mesh_names,
+                                        default_material_id, sort_order, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![
+            group.id, group.project_id, group.scene_id, group.group_name,
+            group.mesh_names, group.default_material_id, group.sort_order,
+            group.created_at, group.updated_at
+        ],
+    )?;
+    Ok(())
+}
+
+pub fn update_component_group(conn: &Connection, id: &str, input: &UpdateComponentGroupInput) -> Result<()> {
+    let mut updates = vec!["updated_at = datetime('now')".to_string()];
+    let mut param_values: Vec<String> = vec![];
+    let mut param_index = 1;
+
+    if let Some(ref name) = input.group_name {
+        updates.push(format!("group_name = ?{}", param_index));
+        param_values.push(name.clone());
+        param_index += 1;
+    }
+    if let Some(ref meshes) = input.mesh_names {
+        let json = serde_json::to_string(meshes).unwrap_or_else(|_| "[]".to_string());
+        updates.push(format!("mesh_names = ?{}", param_index));
+        param_values.push(json);
+        param_index += 1;
+    }
+    if let Some(ref mat_id) = input.default_material_id {
+        updates.push(format!("default_material_id = ?{}", param_index));
+        param_values.push(mat_id.clone());
+        param_index += 1;
+    }
+
+    param_values.push(id.to_string());
+
+    let sql = format!(
+        "UPDATE component_groups SET {} WHERE id = ?{}",
+        updates.join(", "),
+        param_index
+    );
+
+    let params: Vec<&dyn rusqlite::ToSql> = param_values
+        .iter()
+        .map(|s| s as &dyn rusqlite::ToSql)
+        .collect();
+
+    conn.execute(&sql, params.as_slice())?;
+    Ok(())
+}
+
+pub fn delete_component_group(conn: &Connection, id: &str) -> Result<()> {
+    conn.execute("DELETE FROM component_groups WHERE id = ?1", [id])?;
+    Ok(())
+}
+
+pub fn reorder_component_groups(conn: &Connection, ids: &[String]) -> Result<()> {
+    for (index, id) in ids.iter().enumerate() {
+        conn.execute(
+            "UPDATE component_groups SET sort_order = ?1 WHERE id = ?2",
+            params![index as i32, id],
+        )?;
+    }
+    Ok(())
+}
+
+// ============================================
+// COMPONENT MATERIAL OPTIONS
+// ============================================
+
+pub fn get_material_options(conn: &Connection, component_group_id: &str) -> Result<Vec<ComponentMaterialOption>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, component_group_id, material_id, sort_order
+         FROM component_material_options WHERE component_group_id = ?1 ORDER BY sort_order"
+    )?;
+
+    let options = stmt.query_map([component_group_id], |row| {
+        Ok(ComponentMaterialOption {
+            id: row.get(0)?,
+            component_group_id: row.get(1)?,
+            material_id: row.get(2)?,
+            sort_order: row.get(3)?,
+        })
+    })?;
+
+    options.collect()
+}
+
+pub fn add_material_option(conn: &Connection, option: &ComponentMaterialOption) -> Result<()> {
+    conn.execute(
+        "INSERT INTO component_material_options (id, component_group_id, material_id, sort_order)
+         VALUES (?1, ?2, ?3, ?4)",
+        params![option.id, option.component_group_id, option.material_id, option.sort_order],
+    )?;
+    Ok(())
+}
+
+pub fn remove_material_option(conn: &Connection, id: &str) -> Result<()> {
+    conn.execute("DELETE FROM component_material_options WHERE id = ?1", [id])?;
+    Ok(())
+}
+
+pub fn reorder_material_options(conn: &Connection, ids: &[String]) -> Result<()> {
+    for (index, id) in ids.iter().enumerate() {
+        conn.execute(
+            "UPDATE component_material_options SET sort_order = ?1 WHERE id = ?2",
+            params![index as i32, id],
+        )?;
+    }
     Ok(())
 }

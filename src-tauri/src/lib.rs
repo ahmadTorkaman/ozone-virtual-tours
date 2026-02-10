@@ -128,6 +128,27 @@ pub fn run() {
             commands::updater::check_for_updates,
             commands::updater::install_update,
             commands::updater::get_current_version,
+
+            // Publish commands
+            commands::publish::toggle_scene_publish,
+            commands::publish::toggle_panorama_publish,
+            commands::publish::update_publish_slug,
+
+            // Configurator commands
+            commands::configurator::list_component_groups,
+            commands::configurator::get_component_group,
+            commands::configurator::create_component_group,
+            commands::configurator::update_component_group,
+            commands::configurator::delete_component_group,
+            commands::configurator::reorder_component_groups,
+            commands::configurator::add_material_option,
+            commands::configurator::remove_material_option,
+            commands::configurator::reorder_material_options,
+            commands::configurator::list_material_options,
+
+            // Firm commands
+            commands::firm::get_firm_profile,
+            commands::firm::update_firm_profile,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

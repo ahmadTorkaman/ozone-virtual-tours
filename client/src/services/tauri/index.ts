@@ -16,6 +16,11 @@ export interface Project {
   cloud_id: string | null;
   last_synced_at: string | null;
   sync_enabled: boolean;
+  scene_published: boolean;
+  panorama_published: boolean;
+  publish_version: number;
+  published_at: string | null;
+  publish_slug: string | null;
 }
 
 /** Input for creating a new project */
@@ -515,3 +520,110 @@ export const activateLicense = (key: string, email?: string) =>
 export const deactivateLicense = () => invoke<void>('deactivate_license');
 export const checkFeature = (feature: string) => invoke<boolean>('check_feature', { feature });
 export const getMachineId = () => invoke<string>('get_machine_id_cmd');
+
+// ============================================
+// PUBLISH COMMANDS
+// ============================================
+
+export const toggleScenePublish = (projectId: string, published: boolean) =>
+  invoke<Project>('toggle_scene_publish', { projectId, published });
+
+export const togglePanoramaPublish = (projectId: string, published: boolean) =>
+  invoke<Project>('toggle_panorama_publish', { projectId, published });
+
+export const updatePublishSlug = (projectId: string, slug: string) =>
+  invoke<void>('update_publish_slug', { projectId, slug });
+
+// ============================================
+// CONFIGURATOR TYPES & COMMANDS
+// ============================================
+
+export interface ComponentGroup {
+  id: string;
+  project_id: string;
+  scene_id: string;
+  group_name: string;
+  /** JSON array string of mesh names */
+  mesh_names: string;
+  default_material_id: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateComponentGroupInput {
+  project_id: string;
+  scene_id: string;
+  group_name: string;
+  mesh_names: string[];
+  default_material_id?: string;
+}
+
+export interface UpdateComponentGroupInput {
+  group_name?: string;
+  mesh_names?: string[];
+  default_material_id?: string;
+}
+
+export interface ComponentMaterialOption {
+  id: string;
+  component_group_id: string;
+  material_id: string;
+  sort_order: number;
+}
+
+export const listComponentGroups = (sceneId: string) =>
+  invoke<ComponentGroup[]>('list_component_groups', { sceneId });
+
+export const getComponentGroup = (id: string) =>
+  invoke<ComponentGroup | null>('get_component_group', { id });
+
+export const createComponentGroup = (input: CreateComponentGroupInput) =>
+  invoke<ComponentGroup>('create_component_group', { input });
+
+export const updateComponentGroup = (id: string, input: UpdateComponentGroupInput) =>
+  invoke<void>('update_component_group', { id, input });
+
+export const deleteComponentGroup = (id: string) =>
+  invoke<void>('delete_component_group', { id });
+
+export const reorderComponentGroups = (ids: string[]) =>
+  invoke<void>('reorder_component_groups', { ids });
+
+export const addMaterialOption = (componentGroupId: string, materialId: string) =>
+  invoke<ComponentMaterialOption>('add_material_option', { componentGroupId, materialId });
+
+export const removeMaterialOption = (id: string) =>
+  invoke<void>('remove_material_option', { id });
+
+export const reorderMaterialOptions = (ids: string[]) =>
+  invoke<void>('reorder_material_options', { ids });
+
+export const listMaterialOptions = (componentGroupId: string) =>
+  invoke<ComponentMaterialOption[]>('list_material_options', { componentGroupId });
+
+// ============================================
+// FIRM PROFILE TYPES & COMMANDS
+// ============================================
+
+export interface FirmProfile {
+  id: number;
+  firm_name: string;
+  subdomain: string;
+  logo_path: string | null;
+  file_server_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UpdateFirmProfileInput {
+  firm_name: string;
+  subdomain: string;
+  logo_path?: string;
+  file_server_url?: string;
+}
+
+export const getFirmProfile = () => invoke<FirmProfile>('get_firm_profile');
+
+export const updateFirmProfile = (input: UpdateFirmProfileInput) =>
+  invoke<FirmProfile>('update_firm_profile', { input });
