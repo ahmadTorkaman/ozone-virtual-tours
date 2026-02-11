@@ -149,6 +149,10 @@ pub fn run() {
             // Firm commands
             commands::firm::get_firm_profile,
             commands::firm::update_firm_profile,
+
+            // Publish packaging commands
+            commands::publish_packaging::save_thumbnail,
+            commands::publish_packaging::publish_project,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -13,7 +13,10 @@ import {
   X,
   FolderOpen,
   Trash2,
+  Building2,
+  Upload,
 } from 'lucide-react';
+import { open } from '@tauri-apps/plugin-dialog';
 import { Button } from '@/components/ui';
 import { useLicenseStore } from '@/stores/licenseStore';
 import {
@@ -21,12 +24,17 @@ import {
   formatDaysRemaining,
   getTierDisplayName,
 } from '@/services/licenseService';
+import {
+  getFirmProfile,
+  updateFirmProfile,
+} from '@/services/tauri';
 
-type SettingsPanel = 'general' | 'license' | 'shortcuts' | 'updates' | 'about';
+type SettingsPanel = 'general' | 'license' | 'firm' | 'shortcuts' | 'updates' | 'about';
 
 const navItems: { id: SettingsPanel; label: string; icon: typeof SettingsIcon }[] = [
   { id: 'general', label: 'General', icon: SettingsIcon },
   { id: 'license', label: 'License', icon: ShieldCheck },
+  { id: 'firm', label: 'Firm Profile', icon: Building2 },
   { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard },
   { id: 'updates', label: 'Updates', icon: Download },
   { id: 'about', label: 'About', icon: Info },
@@ -67,6 +75,7 @@ export function Settings() {
         <div className="flex-1 overflow-y-auto px-7 py-5">
           {activePanel === 'general' && <GeneralPanel />}
           {activePanel === 'license' && <LicensePanel />}
+          {activePanel === 'firm' && <FirmProfilePanel />}
           {activePanel === 'shortcuts' && <ShortcutsPanel />}
           {activePanel === 'updates' && <UpdatesPanel />}
           {activePanel === 'about' && <AboutPanel />}
@@ -462,6 +471,115 @@ function AboutPanel() {
           <Button variant="secondary" size="sm">
             <Mail size={12} />
             Contact Support
+          </Button>
+        </div>
+      </SettingsSection>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════
+   FIRM PROFILE
+   ══════════════════════════════════════════════ */
+
+function FirmProfilePanel() {
+  const [firmName, setFirmName] = useState('');
+  const [subdomain, setSubdomain] = useState('');
+  const [logoPath, setLogoPath] = useState('');
+  const [fileServerUrl, setFileServerUrl] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    getFirmProfile().then((p) => {
+      setFirmName(p.firm_name);
+      setSubdomain(p.subdomain);
+      setLogoPath(p.logo_path || '');
+      setFileServerUrl(p.file_server_url || '');
+    }).catch(() => {});
+  }, []);
+
+  const handlePickLogo = async () => {
+    const filePath = await open({
+      multiple: false,
+      filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'svg', 'webp'] }],
+      title: 'Select firm logo',
+    });
+    if (filePath && !Array.isArray(filePath)) {
+      setLogoPath(filePath);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaved(false);
+    try {
+      await updateFirmProfile({
+        firm_name: firmName,
+        subdomain: subdomain.toLowerCase().replace(/[^a-z0-9-]/g, ''),
+        logo_path: logoPath || undefined,
+        file_server_url: fileServerUrl || undefined,
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      console.error('Failed to save firm profile:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="max-w-xl">
+      <SettingsSection title="Firm Profile" description="Your company details for published configurator pages." first>
+        <SettingRow label="Firm name" description="Displayed on the customer-facing viewer.">
+          <input
+            type="text"
+            value={firmName}
+            onChange={(e) => setFirmName(e.target.value)}
+            placeholder="Acme Interiors"
+            className="w-[260px] bg-raised text-txt-primary text-[11px] px-2.5 py-1.5 rounded border border-border-subtle focus:outline-none focus:border-border-focus placeholder:text-txt-tertiary"
+          />
+        </SettingRow>
+        <SettingRow label="Subdomain" description="Your unique URL prefix for published scenes.">
+          <div className="flex items-center gap-1">
+            <input
+              type="text"
+              value={subdomain}
+              onChange={(e) => setSubdomain(e.target.value)}
+              placeholder="acme"
+              className="w-[120px] bg-raised text-txt-primary text-[11px] px-2.5 py-1.5 rounded-l border border-border-subtle focus:outline-none focus:border-border-focus placeholder:text-txt-tertiary"
+            />
+            <span className="text-[11px] text-txt-tertiary bg-surface px-2 py-1.5 border border-l-0 border-border-subtle rounded-r">
+              .view.ozonestudio.com
+            </span>
+          </div>
+        </SettingRow>
+        <SettingRow label="Logo" description="Company logo shown on the viewer header.">
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={handlePickLogo}>
+              <Upload size={13} />
+              {logoPath ? 'Change' : 'Choose'}
+            </Button>
+            {logoPath && (
+              <span className="text-[10px] text-txt-tertiary max-w-[140px] truncate" title={logoPath}>
+                {logoPath.split(/[/\\]/).pop()}
+              </span>
+            )}
+          </div>
+        </SettingRow>
+        <SettingRow label="File server URL" description="Base URL where published assets are served from (your local server).">
+          <input
+            type="text"
+            value={fileServerUrl}
+            onChange={(e) => setFileServerUrl(e.target.value)}
+            placeholder="https://files.acme.com"
+            className="w-[260px] bg-raised text-txt-primary text-[11px] px-2.5 py-1.5 rounded border border-border-subtle focus:outline-none focus:border-border-focus placeholder:text-txt-tertiary"
+          />
+        </SettingRow>
+        <div className="flex items-center gap-2 mt-1">
+          <Button size="sm" onClick={handleSave} disabled={saving || !firmName || !subdomain}>
+            {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Profile'}
           </Button>
         </div>
       </SettingsSection>

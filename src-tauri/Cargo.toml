@@ -33,6 +33,9 @@ tokio = { version = "1", features = ["full"] }
 # Zip for project export/import
 zip = "2.1"
 
+# Base64 decoding for thumbnail data
+base64 = "0.22"
+
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]

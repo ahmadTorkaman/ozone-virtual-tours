@@ -535,6 +535,30 @@ export const updatePublishSlug = (projectId: string, slug: string) =>
   invoke<void>('update_publish_slug', { projectId, slug });
 
 // ============================================
+// PUBLISH PACKAGING COMMANDS
+// ============================================
+
+export interface PublishInput {
+  project_id: string;
+  destination_folder: string;
+  scene_thumbnails: Record<string, string>;
+  panorama_thumbnails: Record<string, string>;
+}
+
+export interface PublishProgress {
+  step: string;
+  current: number;
+  total: number;
+  message: string;
+}
+
+export const saveThumbnail = (base64Data: string, destinationPath: string) =>
+  invoke<void>('save_thumbnail', { base64Data, destinationPath });
+
+export const publishProject = (input: PublishInput) =>
+  invoke<string>('publish_project', { input });
+
+// ============================================
 // CONFIGURATOR TYPES & COMMANDS
 // ============================================
 

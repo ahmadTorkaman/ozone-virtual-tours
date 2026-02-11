@@ -120,61 +120,60 @@
 
 > **Full design:** `docs/plans/customer-configurator.md`
 
-### Phase A: Data Model & Publish Status (Desktop App)
-- [ ] **Database schema: publish status columns on projects**
-  - [ ] `scene_published`, `panorama_published`, `publish_version`, `published_at`, `publish_slug`
-- [ ] **Database schema: `firm_profile` table**
-  - [ ] `firm_name`, `subdomain`, `logo_path`, `file_server_url`
-- [ ] **Database schema: `component_groups` table**
-  - [ ] `group_name`, `mesh_names` (JSON array), `default_material_id`, `sort_order`
-- [ ] **Database schema: `component_material_options` table**
-  - [ ] `component_group_id`, `material_id`, `sort_order`
-- [ ] **Rust/Tauri commands for publish status**
-  - [ ] `toggle_scene_publish`, `toggle_panorama_publish`
-- [ ] **Rust/Tauri commands for component groups**
-  - [ ] `create_component_group`, `update_component_group`, `delete_component_group`
-  - [ ] `add_material_option`, `remove_material_option`, `reorder_material_options`
-- [ ] **Rust/Tauri commands for firm profile**
-  - [ ] `get_firm_profile`, `update_firm_profile`
-- [ ] **UI: Publish toggles on Project Detail page**
-  - [ ] Separate scene/panorama publish switches
-  - [ ] Publish version indicator, published-at timestamp
-  - [ ] QR code display + download (PNG/SVG) after publishing
-- [ ] **UI: Configurable components panel in Scene Editor**
-  - [ ] Right-click object → "Mark as Configurable"
-  - [ ] Component group naming, mesh assignment
-  - [ ] Material options picker with thumbnails
-  - [ ] Default material selection
-- [ ] **UI: Firm Profile in Settings**
-  - [ ] Firm name, subdomain, logo upload, file server URL
+### Phase A: Data Model & Publish Status (Desktop App) ✅
+- [x] **Database schema: publish status columns on projects**
+  - [x] `scene_published`, `panorama_published`, `publish_version`, `published_at`, `publish_slug`
+- [x] **Database schema: `firm_profile` table**
+  - [x] `firm_name`, `subdomain`, `logo_path`, `file_server_url`
+- [x] **Database schema: `component_groups` table**
+  - [x] `group_name`, `mesh_names` (JSON array), `default_material_id`, `sort_order`
+- [x] **Database schema: `component_material_options` table**
+  - [x] `component_group_id`, `material_id`, `sort_order`
+- [x] **Rust/Tauri commands for publish status**
+  - [x] `toggle_scene_publish`, `toggle_panorama_publish`
+- [x] **Rust/Tauri commands for component groups**
+  - [x] `create_component_group`, `update_component_group`, `delete_component_group`
+  - [x] `add_material_option`, `remove_material_option`, `reorder_material_options`
+- [x] **Rust/Tauri commands for firm profile**
+  - [x] `get_firm_profile`, `update_firm_profile`
+- [x] **UI: Publish toggles on Project Detail page**
+  - [x] Separate scene/panorama publish switches
+  - [x] Publish version indicator, published-at timestamp
+  - [x] QR code display + download (PNG/SVG) after publishing
+- [x] **UI: Configurable components panel in Scene Editor**
+  - [x] Components tab in right panel (3rd tab)
+  - [x] Component group create/delete/reorder
+  - [x] Mesh assignment with search dropdown
+  - [x] Material options picker with add/remove/reorder
+  - [x] Default material selection
+- [x] **UI: Firm Profile in Settings**
+  - [x] Firm name, subdomain, logo upload, file server URL
 
 ### Phase B: Publish Packaging (Desktop App)
-- [ ] **GLB optimization pipeline**
-  - [ ] Draco/meshopt compression
-  - [ ] Texture → KTX2 conversion
-- [ ] **Manifest JSON generation** from component config
-- [ ] **Thumbnail generation** for scenes and panoramas
-- [ ] **Material thumbnail generation**
-- [ ] **Upload to firm's file server** (configurable endpoint)
-- [ ] **Send metadata to Ozone backend API**
+- [x] **GLB optimization pipeline** (copy as-is; meshopt deferred to enhancement)
+- [x] **Manifest JSON generation** from component config
+- [x] **Thumbnail generation** for scenes and panoramas (frontend Three.js capture)
+- [x] **Material thumbnail generation** (copies existing material thumbnails)
+- [x] **Local folder export** (replaces upload — HTTP upload deferred to Phase D)
+- [ ] **Send metadata to Ozone backend API** (deferred to Phase D)
 
-### Phase C: Customer Viewer (Web App)
-- [ ] **Project setup:** Vite + React + Three.js + R3F (separate repo/directory)
-- [ ] **Lobby/Menu page**
-  - [ ] Project info, scene/panorama cards
-  - [ ] Firm logo watermark + Ozone Studio branding
-- [ ] **3D Scene Viewer**
-  - [ ] GLB loader with Draco/KTX2 support
-  - [ ] Configurable component detection + highlight on tap/click
-  - [ ] Bottom sheet with material thumbnails for swapping
-  - [ ] Orbit controls, mobile touch support
-- [ ] **Rendering engine**
-  - [ ] WebGPU path tracer (`three-gpu-pathtracer`) for capable devices
-  - [ ] WebGL2 PBR fallback for mobile/weaker devices
-  - [ ] Auto GPU capability detection + renderer selection
-- [ ] **Panorama Viewer** — simplified read-only version
-- [ ] **Subdomain routing** (`firmname.view.ozonestudio.com`)
-- [ ] **Mobile-first responsive design**
+### Phase C: Customer Viewer (Web App) ✅
+- [x] **Project setup:** Vite + React + Three.js + R3F (`viewer/` directory)
+- [x] **Lobby/Menu page**
+  - [x] Project info, scene/panorama cards
+  - [x] Firm logo watermark + Ozone Studio branding
+- [x] **3D Scene Viewer**
+  - [x] GLB loader with Draco support
+  - [x] Configurable component detection + click to select
+  - [x] Bottom sheet with material thumbnails for swapping
+  - [x] Orbit controls, mobile touch support
+- [x] **Rendering engine**
+  - [x] Path tracer (`three-gpu-pathtracer`) for capable devices
+  - [x] WebGL2 PBR fallback for mobile/weaker devices
+  - [x] Auto GPU capability detection + renderer selection
+- [x] **Panorama Viewer** — equirectangular viewer with touch controls
+- [ ] **Subdomain routing** (`firmname.view.ozonestudio.com`) — deferred to Phase D
+- [x] **Mobile-first responsive design** (100dvh, safe-area, touch targets)
 
 ### Phase D: Ozone Backend API (Server)
 - [ ] **Tech stack decision** (Node.js, Rust/Axum, Go, etc.)

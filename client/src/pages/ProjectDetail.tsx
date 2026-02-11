@@ -14,6 +14,7 @@ import {
 } from '@/services/tauri';
 import { useLicenseStore } from '@/stores/licenseStore';
 import { parseTauriError } from '@/types/errors';
+import { PublishSection } from '@/features/publish';
 import { ArrowLeft, Upload, Box, Globe, Plus, MoreVertical, Lock } from 'lucide-react';
 import { Button, IconButton } from '@/components/ui';
 
@@ -199,6 +200,9 @@ export function ProjectDetail() {
             </IconButton>
           </div>
         </div>
+
+        {/* Publish controls */}
+        <PublishSection project={project} scenes={scenes} panoramas={panoramas} onProjectUpdate={setProject} />
       </div>
 
       {/* Tab bar */}

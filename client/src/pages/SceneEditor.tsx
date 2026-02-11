@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { SceneViewer, ObjectHierarchy } from '@/features/scene-viewer';
 import { MaterialLibrary } from '@/features/materials';
+import { ComponentsPanel } from '@/features/configurator';
 import { useSceneStore } from '@/stores/sceneStore';
 import { useMaterialStore } from '@/stores/materialStore';
 import { getSceneGlbUrl } from '@/lib/tauri-file';
@@ -30,7 +31,7 @@ import {
   type Project,
 } from '@/services/tauri';
 
-type InspectorTab = 'properties' | 'material';
+type InspectorTab = 'properties' | 'material' | 'components';
 type TransformTool = 'move' | 'rotate' | 'scale';
 type ViewMode = 'firstperson' | 'orbit';
 
@@ -261,6 +262,7 @@ export function SceneEditor() {
   const inspectorTabs: { id: InspectorTab; label: string }[] = [
     { id: 'properties', label: 'Properties' },
     { id: 'material', label: 'Material' },
+    { id: 'components', label: 'Components' },
   ];
 
   return (
@@ -415,7 +417,7 @@ export function SceneEditor() {
         <div className="flex-1 overflow-hidden">
           {inspectorTab === 'properties' ? (
             <PropertiesPanel selectedObjectName={selectedObjectName} />
-          ) : (
+          ) : inspectorTab === 'material' ? (
             <MaterialLibrary
               selectedMaterialId={selectedMaterialId}
               onSelect={(id) => setSelectedMaterial(id)}
@@ -423,6 +425,8 @@ export function SceneEditor() {
               canApply={!!selectedObjectName}
               onApply={handleApplyMaterial}
             />
+          ) : (
+            <ComponentsPanel projectId={projectId!} sceneId={sceneId!} />
           )}
         </div>
       </aside>

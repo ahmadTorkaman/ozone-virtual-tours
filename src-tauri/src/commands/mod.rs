@@ -7,6 +7,7 @@ pub mod materials;
 pub mod panoramas;
 pub mod projects;
 pub mod publish;
+pub mod publish_packaging;
 pub mod scenes;
 pub mod settings;
 pub mod updater;
